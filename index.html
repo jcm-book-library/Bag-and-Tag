@@ -169,7 +169,8 @@ select.inp{font-size:16px}
 .chip[aria-pressed="true"]{background:var(--tag);color:var(--tag-ink);border-color:var(--tag)}
 .chip:disabled{opacity:.4;text-decoration:line-through;cursor:default}
 .pcs{display:flex;flex-wrap:wrap;gap:6px}
-.pcs .inp{flex:1 1 110px;width:auto}
+.pcs .inp{flex:1 1 100%;width:auto}
+.pcs .chip{flex:1 1 0}
 .pcs .chip{font-size:15px}
 .seg{display:flex;flex-wrap:wrap;gap:6px}
 .seg .chip{font-size:15px;padding:0 14px}
@@ -206,7 +207,7 @@ table.idx{width:100%;border-collapse:collapse;font-size:15px}
 .sheet-frame .sheet{transform-origin:0 0;position:absolute;left:0;top:0}
 .sheet{position:relative;background:#fff;color:#000;overflow:hidden}
 .lbl{position:absolute;display:flex;flex-direction:column;justify-content:center;align-items:center;text-align:center;overflow:hidden;color:#000}
-.lbl .c{font-family:var(--display);font-weight:800;line-height:1;white-space:nowrap;font-variant-numeric:tabular-nums}
+.lbl .c{font-family:var(--display);font-weight:800;line-height:1.1;white-space:nowrap;font-variant-numeric:tabular-nums}
 .lbl .r{font-family:var(--body);font-weight:700;line-height:1.1;white-space:nowrap;margin-top:.35em}
 .lbl .x{font-family:var(--body);line-height:1.1;white-space:nowrap;margin-top:.3em;color:#333}
 .lbl.outline{border:.3mm dashed #666}
@@ -611,7 +612,7 @@ function updateBagPreview() {
     h.className = 'hint' + (big ? ' warn' : '');
     const used = new Set(bagsOf(p.id).filter(x => x.kind === 'stage' && x.stage === F.stage && x.id !== F.id).map(x => x.letter));
     const nextL = [...LETTERS].find(L => L !== F.letter && !used.has(L)) || 'Z';
-    h.textContent = big && F.kind === 'stage' ? `Over ~300 pieces. Consider splitting the rest into ${p.code}-${F.stage}-${nextL}.` : (F.kind === 'stage' ? 'Aim for 200–300 pieces per bag.' : '');
+    h.textContent = big && F.kind === 'stage' ? `Over ~300 pieces. Consider splitting the rest into\u00a0${p.code}\u2011${F.stage}\u2011${nextL}.` : (F.kind === 'stage' ? 'Aim for 200–300 pieces per bag.' : '');
   }
   $('#bagDlg').querySelectorAll('[data-act="pcs"]').forEach(c => c.setAttribute('aria-pressed', String(F.pieces === +c.dataset.n)));
 }
@@ -1054,9 +1055,9 @@ document.addEventListener('change', async e => {
   if (t.id === 'hideDone') { S.hideDone = t.checked; ls.set('bt_hideDone', S.hideDone); const y = scrollY; render(); scrollTo(0, y); }
 });
 document.addEventListener('submit', e => {
-  e.preventDefault();
-  if (e.target.id === 'bagForm') saveBag(e.submitter?.value === 'next');
-  if (e.target.id === 'projForm') saveProject();
+  // Leave <form method="dialog"> (the confirm dialog) to close itself.
+  if (e.target.id === 'bagForm') { e.preventDefault(); saveBag(e.submitter?.value === 'next'); }
+  else if (e.target.id === 'projForm') { e.preventDefault(); saveProject(); }
 });
 $('#bagDlg').addEventListener('close', () => { if (F?.previewURL) URL.revokeObjectURL(F.previewURL); F = null; });
 document.addEventListener('toggle', e => { if (e.target.id === 'layDetails') S.layOpen = e.target.open; }, true);
