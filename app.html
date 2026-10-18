@@ -1,0 +1,1069 @@
+<title>Bag &amp; Tag</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@75..100,500..800&family=Atkinson+Hyperlegible:wght@400;700&display=swap">
+<style>
+/* Layout: one column on phone with a bottom tab bar; on laptop the tabs sit on top and Labels splits into controls | sheet preview.
+   Palette: baseplate grey ground, LEGO-blue actions, sticker-yellow bag codes (the codes are the thing you hunt for). */
+:root{
+  --bg:#eceff4; --surface:#ffffff; --raise:#e2e7ef; --line:#cfd6e2;
+  --fg:#151a25; --muted:#586174; --accent:#0b57c9; --accent-ink:#ffffff;
+  --tag:#ffd23f; --tag-ink:#1d1704; --ok:#1d8048; --danger:#c3122d;
+  --display:"Archivo",ui-sans-serif,system-ui,sans-serif;
+  --body:"Atkinson Hyperlegible",ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif;
+  --tabh:64px;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#10141c; --surface:#181e29; --raise:#232b3a; --line:#313b4e;
+  --fg:#eef1f7; --muted:#9ba5b9; --accent:#6aa5ff; --accent-ink:#08101f;
+  --tag:#ffd23f; --tag-ink:#1d1704; --ok:#4cc985; --danger:#ff6b7f; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#10141c; --surface:#181e29; --raise:#232b3a; --line:#313b4e;
+  --fg:#eef1f7; --muted:#9ba5b9; --accent:#6aa5ff; --accent-ink:#08101f;
+  --tag:#ffd23f; --tag-ink:#1d1704; --ok:#4cc985; --danger:#ff6b7f; color-scheme:dark}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.45 var(--body)}
+button,input,select,textarea{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+h1,h2,h3{font-family:var(--display);font-weight:800;letter-spacing:-.01em;margin:0;text-wrap:balance}
+h1{font-size:clamp(24px,5vw,32px);line-height:1.1}
+h2{font-size:19px}
+h3{font-size:15px}
+.muted{color:var(--muted)}
+.tnum{font-variant-numeric:tabular-nums}
+.eyebrow{font-size:12px;text-transform:uppercase;letter-spacing:.09em;color:var(--muted);font-weight:700}
+.wrap{max-width:960px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:18px calc(var(--tabh) + 110px)}
+.stack{display:flex;flex-direction:column;gap:14px}
+.row{display:flex;flex-wrap:wrap;align-items:center;gap:10px}
+.sp{flex:1}
+
+/* Buttons: 48px minimum so dusty fingers hit them */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:48px;padding:0 18px;border-radius:10px;border:1px solid var(--line);background:var(--surface);font-weight:700;font-size:16px;text-decoration:none;color:var(--fg)}
+.btn:hover{border-color:var(--muted)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.btn.primary:hover{filter:brightness(1.07)}
+.btn.ghost{background:transparent;border-color:transparent}
+.btn.ghost:hover{background:var(--raise)}
+.btn.danger{color:var(--danger)}
+.btn.sm{min-height:38px;padding:0 12px;font-size:14px;border-radius:8px}
+.btn.big{min-height:60px;font-size:18px;padding:0 24px;border-radius:14px}
+.btn:disabled{opacity:.45;cursor:default}
+.btn svg{width:20px;height:20px;flex:none}
+
+/* Bag code tag: a yellow sticky label */
+.tag{display:inline-block;font-family:var(--display);font-weight:800;font-stretch:88%;letter-spacing:.02em;background:var(--tag);color:var(--tag-ink);border-radius:5px;padding:3px 9px 2px;line-height:1.2;white-space:nowrap;font-variant-numeric:tabular-nums;box-shadow:inset 0 -2px 0 rgb(0 0 0/.12)}
+.tag.lg{font-size:22px;padding:4px 12px 3px}
+.tag.xl{font-size:clamp(34px,9vw,48px);padding:6px 16px 4px;border-radius:8px}
+.tag.ghost{background:transparent;color:var(--muted);box-shadow:inset 0 0 0 2px var(--line)}
+
+/* Header */
+.brand{display:flex;align-items:center;gap:12px}
+.brand svg{width:44px;height:44px;flex:none}
+.brand .name{font-family:var(--display);font-weight:800;font-size:24px;line-height:1}
+.brand .sub{font-size:14px;color:var(--muted)}
+.topbar{display:flex;flex-wrap:wrap;align-items:center;gap:12px;margin-bottom:16px}
+.crumb{display:inline-flex;align-items:center;gap:6px;color:var(--muted);text-decoration:none;font-weight:700;min-height:44px}
+.crumb:hover{color:var(--fg)}
+.badge{display:inline-block;font-size:12px;font-weight:700;padding:2px 8px;border-radius:99px;background:var(--raise);color:var(--muted)}
+.badge.ex{background:color-mix(in srgb,var(--tag) 35%,var(--surface));color:var(--tag-ink)}
+.notice{background:var(--surface);border:1px solid var(--line);border-left:4px solid var(--accent);border-radius:10px;padding:10px 14px;font-size:14px}
+
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:16px}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px}
+.stat{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:12px 14px;min-width:0}
+.stat .num{font-family:var(--display);font-weight:800;font-size:28px;line-height:1.05;font-variant-numeric:tabular-nums}
+.stat .sub{font-size:13px;color:var(--muted)}
+.bar{height:8px;border-radius:4px;background:var(--raise);overflow:hidden;margin-top:8px}
+.bar>i{display:block;height:100%;background:var(--accent);border-radius:4px;transition:width .3s}
+.bar.ok>i{background:var(--ok)}
+
+/* Stage studs: one round stud per stage, filled when bagged / rebuilt */
+.studs{display:flex;flex-wrap:wrap;gap:6px}
+.stud{width:34px;height:34px;border-radius:50%;display:grid;place-items:center;font-family:var(--display);font-weight:800;font-size:13px;background:var(--raise);color:var(--muted);box-shadow:inset 0 -3px 0 rgb(0 0 0/.08);font-variant-numeric:tabular-nums}
+.stud.on{background:var(--tag);color:var(--tag-ink)}
+.stud.done{background:var(--ok);color:#fff}
+
+/* Projects */
+.projects{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px}
+.pcard{display:flex;flex-direction:column;gap:8px;text-align:left;background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:16px;color:var(--fg);text-decoration:none}
+.pcard:hover{border-color:var(--accent)}
+.pcard .t{font-family:var(--display);font-weight:800;font-size:20px;line-height:1.15}
+.pcard.new{border-style:dashed;align-items:center;justify-content:center;min-height:150px;color:var(--accent);font-weight:700}
+.empty-hero{display:grid;gap:14px;padding:22px;border-radius:16px;background:var(--surface);border:1px solid var(--line)}
+
+/* Tabs */
+.tabs{position:fixed;left:0;right:0;bottom:0;z-index:20;display:grid;grid-template-columns:repeat(4,1fr);background:var(--surface);border-top:1px solid var(--line);padding:0 max(8px,env(safe-area-inset-right,0px)) env(safe-area-inset-bottom,0px) max(8px,env(safe-area-inset-left,0px))}
+.tabs a{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;height:var(--tabh);text-decoration:none;color:var(--muted);font-weight:700;font-size:13px}
+.tabs a svg{width:24px;height:24px}
+.tabs a[aria-current="page"]{color:var(--accent)}
+@media (min-width:760px){
+  .wrap{padding-bottom:60px}
+  .tabs{position:sticky;top:env(safe-area-inset-top,0px);bottom:auto;display:flex;gap:4px;padding:6px;border:1px solid var(--line);border-radius:14px;margin-bottom:16px}
+  .tabs a{flex-direction:row;height:44px;padding:0 16px;border-radius:10px;font-size:15px;gap:8px}
+  .tabs a svg{width:20px;height:20px}
+  .tabs a[aria-current="page"]{background:var(--raise);color:var(--fg)}
+}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:10;background:var(--bg)}
+
+/* Bag list */
+.search{width:100%;min-height:48px;border:1px solid var(--line);border-radius:10px;background:var(--surface);padding:0 14px}
+.group{display:flex;flex-direction:column;gap:8px}
+.group-h{display:flex;align-items:baseline;gap:10px;padding:6px 2px 0}
+.group-h .m{font-size:13px;color:var(--muted)}
+.bag{display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;gap:12px;width:100%;text-align:left;background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:10px 12px;min-height:64px}
+.bag:hover{border-color:var(--muted)}
+.bag .ref{font-weight:700}
+.bag .meta{font-size:14px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.bag .thumb{width:46px;height:46px;border-radius:8px;object-fit:cover;background:var(--raise)}
+.bag.pinned{border-color:color-mix(in srgb,var(--tag) 60%,var(--line));background:color-mix(in srgb,var(--tag) 9%,var(--surface))}
+.bag.missing{border-style:dashed;background:transparent;color:var(--muted)}
+.pins{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:8px}
+.gap-row{font-size:14px;color:var(--muted);padding:4px 2px}
+.fab{position:fixed;z-index:15;right:max(16px,env(safe-area-inset-right,0px));bottom:calc(var(--tabh) + 16px + env(safe-area-inset-bottom,0px));box-shadow:0 6px 20px rgb(0 0 0/.25)}
+@media (min-width:760px){.fab{bottom:calc(24px + env(safe-area-inset-bottom,0px))}}
+.tick{width:22px;height:22px;color:var(--ok)}
+
+/* Dialogs: full screen on phone, panel on laptop */
+dialog{border:0;padding:0;background:var(--surface);color:var(--fg);width:100%;max-width:100%;height:100%;max-height:100%;margin:0}
+dialog::backdrop{background:rgb(10 14 22/.55)}
+@media (min-width:760px){dialog{width:min(640px,92vw);height:auto;max-height:92vh;margin:auto;border-radius:16px;border:1px solid var(--line)}}
+dialog form{display:flex;flex-direction:column;height:100%;max-height:inherit}
+.dlg-head{display:flex;align-items:center;gap:10px;padding:8px max(12px,env(safe-area-inset-right,0px)) 8px max(12px,env(safe-area-inset-left,0px));padding-top:max(8px,env(safe-area-inset-top,0px));border-bottom:1px solid var(--line)}
+.dlg-head h2{flex:1;text-align:center}
+.dlg-head .sp{width:84px}
+.dlg-body{flex:1;overflow:auto;padding:16px max(16px,env(safe-area-inset-right,0px)) 16px max(16px,env(safe-area-inset-left,0px));display:flex;flex-direction:column;gap:16px}
+.dlg-foot{display:flex;flex-wrap:wrap;gap:10px;padding:12px max(16px,env(safe-area-inset-right,0px)) max(12px,env(safe-area-inset-bottom,0px)) max(16px,env(safe-area-inset-left,0px));border-top:1px solid var(--line)}
+.dlg-foot .btn.primary{flex:1 1 200px}
+.preview{display:flex;flex-direction:column;align-items:center;gap:6px;padding:12px;border-radius:12px;background:var(--raise)}
+.preview .l2{font-weight:700;font-size:17px;min-height:1.4em}
+.field{display:flex;flex-direction:column;gap:6px;min-width:0}
+.field>label,.field .lab{font-weight:700;font-size:15px}
+.opt{font-weight:400;color:var(--muted);font-size:13px}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+@media (max-width:420px){.grid2{grid-template-columns:1fr}}
+.inp,textarea.inp,select.inp{width:100%;min-height:52px;border:1px solid var(--line);border-radius:10px;background:var(--bg);padding:0 14px;font-size:18px}
+textarea.inp{padding:12px 14px;min-height:72px;resize:vertical;font-size:16px}
+select.inp{font-size:16px}
+.inp.n{font-family:var(--display);font-weight:700;text-align:center;font-variant-numeric:tabular-nums}
+.stepper{display:grid;grid-template-columns:56px minmax(0,1fr) 56px;gap:6px}
+.stepper button{min-height:52px;border-radius:10px;border:1px solid var(--line);background:var(--raise);font-size:26px;font-weight:700;line-height:1}
+.range{display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);align-items:center;gap:6px}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{min-width:48px;min-height:48px;padding:0 10px;border-radius:10px;border:1px solid var(--line);background:var(--raise);font-family:var(--display);font-weight:800;font-size:17px}
+.chip[aria-pressed="true"]{background:var(--tag);color:var(--tag-ink);border-color:var(--tag)}
+.chip:disabled{opacity:.4;text-decoration:line-through;cursor:default}
+.pcs{display:flex;flex-wrap:wrap;gap:6px}
+.pcs .inp{flex:1 1 110px;width:auto}
+.pcs .chip{font-size:15px}
+.seg{display:flex;flex-wrap:wrap;gap:6px}
+.seg .chip{font-size:15px;padding:0 14px}
+.hint{margin:0;font-size:14px;color:var(--muted)}
+.hint.warn{color:var(--danger);font-weight:700}
+.err{margin:0;color:var(--danger);font-weight:700}
+.photo{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.photo img{width:72px;height:72px;object-fit:cover;border-radius:10px}
+.ask{padding:20px;display:flex;flex-direction:column;gap:14px}
+#askDlg{height:auto;max-width:440px;margin:auto;border-radius:16px;width:calc(100% - 32px)}
+
+/* Index table */
+.tablewrap{overflow-x:auto}
+table.idx{width:100%;border-collapse:collapse;font-size:15px}
+.idx th,.idx td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--line);vertical-align:top}
+.idx thead th{font-size:12px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted)}
+.idx tr.gh th{background:var(--raise);font-family:var(--display);font-size:15px;text-transform:none;letter-spacing:0;color:var(--fg)}
+.idx .cb{width:28px}
+.idx .cb span{display:inline-block;width:16px;height:16px;border:2px solid var(--muted);border-radius:3px}
+.idx .code{font-family:var(--display);font-weight:800;white-space:nowrap}
+.idx td.n{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+.idx-head{display:flex;flex-wrap:wrap;gap:6px 18px;align-items:baseline;margin-bottom:10px}
+
+/* Labels */
+.labels-grid{display:grid;gap:14px}
+@media (min-width:860px){.labels-grid{grid-template-columns:minmax(0,360px) minmax(0,1fr);align-items:start}}
+.sel-list{display:flex;flex-direction:column;gap:2px;max-height:420px;overflow:auto;border:1px solid var(--line);border-radius:10px;padding:6px}
+.sel-list label{display:flex;align-items:center;gap:10px;min-height:44px;padding:0 8px;border-radius:8px}
+.sel-list label:hover{background:var(--raise)}
+.sel-list input{width:22px;height:22px;accent-color:var(--accent)}
+.sel-list .r{color:var(--muted);font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sheets{display:flex;flex-direction:column;gap:16px}
+.sheet-frame{position:relative;overflow:hidden;border-radius:4px;box-shadow:0 2px 12px rgb(0 0 0/.18);max-width:100%}
+.sheet-frame .sheet{transform-origin:0 0;position:absolute;left:0;top:0}
+.sheet{position:relative;background:#fff;color:#000;overflow:hidden}
+.lbl{position:absolute;display:flex;flex-direction:column;justify-content:center;align-items:center;text-align:center;overflow:hidden;color:#000}
+.lbl .c{font-family:var(--display);font-weight:800;line-height:1;white-space:nowrap;font-variant-numeric:tabular-nums}
+.lbl .r{font-family:var(--body);font-weight:700;line-height:1.1;white-space:nowrap;margin-top:.35em}
+.lbl .x{font-family:var(--body);line-height:1.1;white-space:nowrap;margin-top:.3em;color:#333}
+.lbl.outline{border:.3mm dashed #666}
+.sheet-frame .lbl{outline:1px solid #e1e5ec;outline-offset:-1px}
+.sheet-frame .lbl.empty{background:repeating-linear-gradient(45deg,#f4f5f8 0 6px,#fff 6px 12px)}
+details summary{cursor:pointer;font-weight:700;min-height:40px;display:flex;align-items:center}
+.lay{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.lay .inp{min-height:44px;font-size:16px}
+.lay label{font-size:13px;font-weight:700}
+.check{display:flex;align-items:center;gap:10px;min-height:44px}
+.check input{width:22px;height:22px;accent-color:var(--accent)}
+
+/* Rebuild */
+.next{display:grid;gap:12px;padding:18px;border-radius:16px;background:var(--surface);border:2px solid var(--accent)}
+.next .l2{font-size:20px;font-weight:700}
+.next img{max-height:180px;border-radius:10px;object-fit:cover}
+.crow{display:grid;grid-template-columns:auto auto minmax(0,1fr);align-items:center;gap:12px;width:100%;text-align:left;background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:10px 12px;min-height:60px}
+.crow .box{width:30px;height:30px;border-radius:8px;border:2px solid var(--muted);display:grid;place-items:center}
+.crow .box svg{width:20px;height:20px;opacity:0}
+.crow.done{background:transparent}
+.crow.done .box{background:var(--ok);border-color:var(--ok);color:#fff}
+.crow.done .box svg{opacity:1}
+.crow.done .tag{opacity:.55}
+.crow .meta{font-size:14px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.crow.is-next{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent)}
+
+#toast{position:fixed;z-index:50;left:50%;transform:translateX(-50%);bottom:calc(var(--tabh) + 86px + env(safe-area-inset-bottom,0px));display:flex;align-items:center;gap:12px;background:var(--fg);color:var(--bg);padding:10px 12px 10px 16px;border-radius:12px;font-weight:700;max-width:calc(100% - 32px);box-shadow:0 8px 24px rgb(0 0 0/.3)}
+#toast .btn{background:transparent;color:var(--bg);border-color:color-mix(in srgb,var(--bg) 40%,transparent)}
+#printRoot{display:none}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+
+/* Print: only #printRoot is printed. @page is set per job in #pageStyle. */
+@media print{
+  body{background:#fff;color:#000}
+  body::before{display:none}
+  body>*:not(#printRoot){display:none!important}
+  #printRoot{display:block}
+  .sheet{break-after:page;page-break-after:always}
+  .sheet:last-child{break-after:auto;page-break-after:auto}
+  .print-idx{font:10pt/1.35 var(--body);color:#000}
+  .print-idx h1{font-size:18pt}
+  .print-idx table.idx{font-size:9.5pt}
+  .print-idx .idx th,.print-idx .idx td{border-bottom:.3pt solid #999;padding:4pt 6pt;color:#000}
+  .print-idx .idx tr.gh th{background:#eee;color:#000;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  .print-idx .idx tr{break-inside:avoid}
+  .print-idx .idx .cb span{border-color:#000}
+}
+</style>
+<style id="pageStyle"></style>
+
+<div id="app"></div>
+<div id="printRoot"></div>
+<dialog id="bagDlg"></dialog>
+<dialog id="projDlg"></dialog>
+<dialog id="askDlg"></dialog>
+<div id="toast" role="status" hidden></div>
+<input type="file" id="importFile" accept="application/json,.json" hidden>
+
+<script>
+(() => {
+'use strict';
+
+/* ---------- helpers ---------- */
+const $ = (s, r = document) => r.querySelector(s);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+const fmt = n => Number(n || 0).toLocaleString('en-AU');
+const int = v => { const n = parseInt(String(v ?? '').replace(/[^\d]/g, ''), 10); return Number.isFinite(n) ? n : null; };
+const fl = v => { const n = parseFloat(v); return Number.isFinite(n) ? n : null; };
+const ls = {
+  get(k, d) { try { const v = localStorage.getItem(k); return v == null ? d : JSON.parse(v); } catch { return d; } },
+  set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} },
+};
+const LETTERS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+// Fixed bags, pinned above the stages. Order = the order you want them during a rebuild.
+const SPECIAL = {
+  doc:   { suffix: 'DOC',   title: 'Booklets & paperwork',     hint: 'Instruction booklets, sticker sheets, box inserts' },
+  print: { suffix: 'PRINT', title: 'Printed pieces & plaques', hint: 'Printed tiles, stickered parts, the display plaque' },
+  spare: { suffix: 'SPARE', title: 'Spare & extra pieces',     hint: 'Leftover extras from the original build' },
+};
+const KINDS = Object.keys(SPECIAL);
+const ico = {
+  back: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"/></svg>',
+  bags: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M5 8h14l-1.2 11.2a2 2 0 0 1-2 1.8H8.2a2 2 0 0 1-2-1.8z"/><path d="M5 8l1.5-4h11L19 8M9 12h6"/></svg>',
+  index: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M9 6h11M9 12h11M9 18h11"/><circle cx="4.5" cy="6" r="1.2" fill="currentColor"/><circle cx="4.5" cy="12" r="1.2" fill="currentColor"/><circle cx="4.5" cy="18" r="1.2" fill="currentColor"/></svg>',
+  label: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M7 10h10M7 14h6" stroke-linecap="round"/></svg>',
+  build: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><rect x="3" y="10" width="18" height="10" rx="1.5"/><rect x="6" y="6" width="4" height="4" rx="1"/><rect x="14" y="6" width="4" height="4" rx="1"/></svg>',
+  plus: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>',
+  check: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7"/></svg>',
+  print: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M7 9V3h10v6M7 17H4v-7a1 1 0 0 1 1-1h14a1 1 0 0 1 1 1v7h-3"/><rect x="7" y="14" width="10" height="7"/></svg>',
+  camera: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg>',
+};
+const MARK = '<svg viewBox="0 0 48 48" aria-hidden="true"><rect x="3" y="9" width="42" height="34" rx="5" fill="var(--tag)"/><rect x="3" y="35" width="42" height="8" rx="3" fill="rgb(0 0 0/.12)"/><g fill="var(--tag)" stroke="rgb(0 0 0/.18)" stroke-width="1.5"><rect x="9" y="4" width="11" height="8" rx="2.5"/><rect x="28" y="4" width="11" height="8" rx="2.5"/></g><path d="M13 24h22M13 30h13" stroke="var(--tag-ink)" stroke-width="3.2" stroke-linecap="round"/></svg>';
+
+/* ---------- storage: IndexedDB, with an in-memory fallback when the browser blocks it ---------- */
+const DB = (() => {
+  const STORES = ['projects', 'bags', 'photos'];
+  let mem = null, dbp = null;
+  const open = () => dbp || (dbp = new Promise((res, rej) => {
+    const r = indexedDB.open('bag-and-tag', 1);
+    r.onupgradeneeded = () => STORES.forEach(s => r.result.objectStoreNames.contains(s) || r.result.createObjectStore(s, { keyPath: 'id' }));
+    r.onsuccess = () => res(r.result);
+    r.onerror = () => rej(r.error);
+    r.onblocked = () => rej(new Error('blocked'));
+    setTimeout(() => rej(new Error('timeout')), 4000);
+  }));
+  const req = (st, mode, make) => open().then(d => new Promise((res, rej) => {
+    const t = d.transaction(st, mode); const r = make(t.objectStore(st));
+    t.oncomplete = () => res(r.result); t.onerror = t.onabort = () => rej(t.error);
+  }));
+  return {
+    async init() { try { await open(); return true; } catch { mem = Object.fromEntries(STORES.map(s => [s, new Map()])); return false; } },
+    all: st => mem ? Promise.resolve([...mem[st].values()]) : req(st, 'readonly', s => s.getAll()),
+    get: (st, id) => mem ? Promise.resolve(mem[st].get(id)) : req(st, 'readonly', s => s.get(id)),
+    put: (st, v) => mem ? (mem[st].set(v.id, v), Promise.resolve()) : req(st, 'readwrite', s => s.put(v)),
+    del: (st, id) => mem ? (mem[st].delete(id), Promise.resolve()) : req(st, 'readwrite', s => s.delete(id)),
+    get saved() { return !mem; },
+  };
+})();
+
+/* ---------- state ---------- */
+const S = {
+  projects: [], bags: [], route: { view: 'home' }, q: '', hideDone: ls.get('bt_hideDone', false),
+  photoURLs: new Map(), labelSel: null, labelSelFor: null, wake: null,
+  lo: Object.assign({ preset: 'L7160', start: 1, outline: false, extra: false, dx: 0, dy: 0, custom: null }, ls.get('bt_labels', {})),
+};
+const proj = id => S.projects.find(p => p.id === id);
+const bagsOf = pid => S.bags.filter(b => b.projectId === pid);
+const codeOf = (b, p) => b.kind === 'stage' ? `${p.code}-${b.stage}-${b.letter}` : `${p.code}-${SPECIAL[b.kind].suffix}`;
+const lowStep = b => (b.stepFrom != null && b.stepTo != null) ? Math.min(b.stepFrom, b.stepTo) : (b.stepFrom ?? b.stepTo ?? Infinity);
+function refOf(b) {
+  const a = b.stepFrom, z = b.stepTo;
+  let st = '';
+  if (a != null && z != null && a !== z) st = `steps ${Math.min(a, z)}–${Math.max(a, z)}`;
+  else if (a != null || z != null) st = `step ${a ?? z}`;
+  if (b.booklet != null) return st ? `Bk ${b.booklet} · ${st}` : `Bk ${b.booklet}`;
+  return st ? st[0].toUpperCase() + st.slice(1) : '';
+}
+const line2 = b => b.kind === 'stage' ? (refOf(b) || `Stage ${b.stage}`) : SPECIAL[b.kind].title;
+// Rebuild order: stage, then booklet, then lowest step. Letters follow teardown order, so they are only the tie-break.
+const byBuild = (a, b) => a.stage - b.stage || (a.booklet ?? 999) - (b.booklet ?? 999) || lowStep(a) - lowStep(b) || a.letter.localeCompare(b.letter);
+const stageBags = pid => bagsOf(pid).filter(b => b.kind === 'stage').sort(byBuild);
+const specialBag = (pid, k) => bagsOf(pid).find(b => b.kind === k) || null;
+const specialBags = pid => KINDS.map(k => specialBag(pid, k)).filter(Boolean);
+const ordered = pid => [...specialBags(pid), ...stageBags(pid)];
+function stageGroups(pid) {
+  const m = new Map();
+  for (const b of stageBags(pid)) { if (!m.has(b.stage)) m.set(b.stage, []); m.get(b.stage).push(b); }
+  return m;
+}
+function nextLetter(pid, stage, exceptId) {
+  const used = new Set(bagsOf(pid).filter(b => b.kind === 'stage' && b.stage === stage && b.id !== exceptId).map(b => b.letter));
+  return [...LETTERS].find(L => !used.has(L)) || 'Z';
+}
+function stats(p) {
+  const bs = bagsOf(p.id);
+  return { n: bs.length, pcs: bs.reduce((s, b) => s + (b.pieces || 0), 0), done: bs.filter(b => b.rebuiltAt).length };
+}
+
+/* ---------- photos ---------- */
+async function photoURL(id) {
+  if (S.photoURLs.has(id)) return S.photoURLs.get(id);
+  const rec = await DB.get('photos', id);
+  if (!rec) return null;
+  const u = URL.createObjectURL(rec.blob); S.photoURLs.set(id, u); return u;
+}
+function hydratePhotos(root = document) {
+  root.querySelectorAll('img[data-photo]').forEach(async img => { const u = await photoURL(img.dataset.photo); if (u) img.src = u; else img.remove(); });
+}
+async function shrink(file) {
+  const url = URL.createObjectURL(file);
+  try {
+    const img = await new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = rej; i.src = url; });
+    const k = Math.min(1, 1280 / Math.max(img.naturalWidth, img.naturalHeight));
+    const c = document.createElement('canvas');
+    c.width = Math.round(img.naturalWidth * k); c.height = Math.round(img.naturalHeight * k);
+    c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+    return await new Promise(r => c.toBlob(b => r(b || file), 'image/jpeg', 0.82));
+  } finally { URL.revokeObjectURL(url); }
+}
+
+/* ---------- small UI pieces ---------- */
+function toast(msg, action) {
+  const t = $('#toast');
+  t.innerHTML = `<span>${esc(msg)}</span>${action ? `<button type="button" class="btn sm" id="toastAct">${esc(action.label)}</button>` : ''}`;
+  t.hidden = false;
+  if (action) $('#toastAct').onclick = () => { t.hidden = true; action.run(); };
+  clearTimeout(toast.t); toast.t = setTimeout(() => t.hidden = true, action ? 7000 : 2600);
+}
+function ask({ title, body = '', ok = 'OK', danger = false }) {
+  return new Promise(res => {
+    const d = $('#askDlg');
+    d.innerHTML = `<form method="dialog" class="ask"><h2>${esc(title)}</h2>${body ? `<p class="muted" style="margin:0">${esc(body)}</p>` : ''}
+      <div class="row"><span class="sp"></span><button class="btn" value="cancel">Cancel</button><button class="btn primary" value="ok" ${danger ? 'style="background:var(--danger);border-color:var(--danger);color:#fff"' : ''}>${esc(ok)}</button></div></form>`;
+    d.returnValue = '';
+    d.onclose = () => res(d.returnValue === 'ok');
+    d.showModal();
+  });
+}
+const go = h => { location.hash = h; };
+
+/* ---------- routing ---------- */
+function parseRoute() {
+  const [a, id, tab] = location.hash.replace(/^#\/?/, '').split('/');
+  if (a === 'p' && id) return { view: 'project', id, tab: ['bags', 'index', 'labels', 'rebuild'].includes(tab) ? tab : 'bags' };
+  return { view: 'home' };
+}
+function render() {
+  S.route = parseRoute();
+  const r = S.route;
+  if (r.view === 'project' && !proj(r.id)) { go('#/'); return; }
+  if (r.view === 'project') ls.set('bt_last', r.id);
+  $('#app').innerHTML = r.view === 'project' ? viewProject(proj(r.id), r.tab) : viewHome();
+  hydratePhotos($('#app'));
+  if (r.view === 'project' && r.tab === 'labels') fitSheets();
+  if (r.view !== 'project' || r.tab !== 'rebuild') { S.wakeWanted = false; releaseWake(); }
+}
+
+/* ---------- home ---------- */
+function viewHome() {
+  const ps = [...S.projects].sort((a, b) => (b.updatedAt || b.createdAt) - (a.updatedAt || a.createdAt));
+  const inFrame = (() => { try { return window.top !== window.self; } catch { return true; } })();
+  return `<div class="wrap stack">
+    <header class="topbar"><div class="brand">${MARK}<div><div class="name">Bag &amp; Tag</div><div class="sub">Teardown and rebuild tracker for big LEGO sets</div></div></div></header>
+    ${!DB.saved ? `<div class="notice">This browser is blocking storage, so nothing here will be kept after you close the page. Open the app from its own address to save your sets.</div>` : ''}
+    ${inFrame && DB.saved ? `<div class="notice">Preview copy. Printing, offline use and backups work when you open the app from its own address.</div>` : ''}
+    ${ps.length ? `<section class="stack"><div class="row"><h2>Your sets</h2></div><div class="projects">
+      ${ps.map(p => { const s = stats(p); const pct = s.n ? Math.round(s.done / s.n * 100) : 0; const phase = s.done ? `Rebuild · ${s.done} of ${s.n} bags` : 'Teardown';
+        return `<a class="pcard" href="#/p/${p.id}/${s.done ? 'rebuild' : 'bags'}">
+          <div class="row"><span class="tag">${esc(p.code)}</span>${p.example ? '<span class="badge ex">Example data</span>' : ''}<span class="sp"></span><span class="muted tnum">${esc(p.setNumber || '')}</span></div>
+          <div class="t">${esc(p.name)}</div>
+          <div class="muted tnum">${s.n} bags · ~${fmt(s.pcs)}${p.pieces ? ` of ${fmt(p.pieces)}` : ''} pieces</div>
+          <div><div class="eyebrow">${phase}</div><div class="bar ${s.done ? 'ok' : ''}"><i style="width:${s.done ? pct : (p.pieces ? Math.min(100, Math.round(s.pcs / p.pieces * 100)) : 0)}%"></i></div></div>
+        </a>`; }).join('')}
+      <button type="button" class="pcard new" data-act="newProject">${ico.plus.replace('<svg', '<svg width="28" height="28"')}New set</button>
+    </div></section>` : `<section class="empty-hero">
+      <h1>Pack a big set by stage, rebuild it in order.</h1>
+      <p class="muted" style="margin:0;max-width:60ch">Make a project for a set, log each bag as you take a stage apart, print the labels and the master index for the tub, then tick bags off as you rebuild.</p>
+      <div class="row"><button type="button" class="btn primary big" data-act="newProject" data-falcon="1">Set up Millennium Falcon 75192</button><button type="button" class="btn big" data-act="newProject">Another set</button></div>
+      <button type="button" class="btn ghost" data-act="loadExample" style="justify-self:start">Explore with an example set first</button>
+    </section>`}
+    <section class="panel stack">
+      <h2>Backup</h2>
+      <p class="muted" style="margin:0">Your sets live in this browser on this device. Save a backup file before moving devices or clearing your browser, and keep the printed index in the tub.</p>
+      <div class="row"><button type="button" class="btn" data-act="exportData">Save backup file</button><button type="button" class="btn" data-act="importData">Restore from backup</button></div>
+    </section>
+  </div>`;
+}
+
+/* ---------- project shell ---------- */
+function viewProject(p, tab) {
+  const s = stats(p);
+  const tabs = [['bags', 'Bags', ico.bags], ['index', 'Index', ico.index], ['labels', 'Labels', ico.label], ['rebuild', 'Rebuild', ico.build]];
+  const body = { bags: viewBags, index: viewIndex, labels: viewLabels, rebuild: viewRebuild }[tab](p, s);
+  return `<div class="wrap stack">
+    <header class="stack" style="gap:6px">
+      <a class="crumb" href="#/">${ico.back.replace('<svg', '<svg width="20" height="20"')}All sets</a>
+      <div class="row"><span class="tag lg">${esc(p.code)}</span><h1 style="flex:1;min-width:0">${esc(p.name)}</h1><button type="button" class="btn sm" data-act="editProject">Edit set</button></div>
+      <div class="muted tnum">${[p.setNumber && `Set ${esc(p.setNumber)}`, p.pieces && `${fmt(p.pieces)} pieces`, p.booklets && `${p.booklets} booklets`, p.stages && `${p.stages} stages`].filter(Boolean).join(' · ')}${p.example ? ' <span class="badge ex">Example data</span>' : ''}</div>
+    </header>
+    <nav class="tabs" aria-label="Project">${tabs.map(([k, l, i]) => `<a href="#/p/${p.id}/${k}" ${k === tab ? 'aria-current="page"' : ''}>${i}<span>${l}</span></a>`).join('')}</nav>
+    ${body}
+  </div>`;
+}
+
+/* ---------- Bags tab ---------- */
+function studs(p, mode) {
+  const groups = stageGroups(p.id);
+  const max = Math.max(p.stages || 0, ...groups.keys(), 0);
+  if (!max) return '';
+  let out = '';
+  for (let i = 1; i <= max; i++) {
+    const g = groups.get(i) || [];
+    const cls = mode === 'rebuild' ? (g.length && g.every(b => b.rebuiltAt) ? 'done' : g.length ? 'on' : '') : (g.length ? 'on' : '');
+    out += `<span class="stud ${cls}" title="Stage ${i}: ${g.length} bag${g.length === 1 ? '' : 's'}">${i}</span>`;
+  }
+  return `<div class="studs" aria-label="Stages">${out}</div>`;
+}
+function viewBags(p, s) {
+  const last = [...bagsOf(p.id)].sort((a, b) => b.createdAt - a.createdAt)[0];
+  return `<section class="stats">
+      <div class="stat"><div class="num">${s.n}</div><div class="sub">bags packed</div></div>
+      <div class="stat"><div class="num">~${fmt(s.pcs)}</div><div class="sub">${p.pieces ? `of ${fmt(p.pieces)} pieces bagged` : 'pieces bagged'}</div>${p.pieces ? `<div class="bar"><i style="width:${Math.min(100, Math.round(s.pcs / p.pieces * 100))}%"></i></div>` : ''}</div>
+      <div class="stat" style="grid-column:1/-1"><div class="sub" style="margin-bottom:6px">Stages bagged</div>${studs(p, 'bags') || '<div class="sub">Add the number of stages in Edit set to see them here.</div>'}</div>
+    </section>
+    ${last ? `<p class="hint">Last bagged: <b class="tnum">${esc(codeOf(last, p))}</b>${last.kind === 'stage' && refOf(last) ? ` · ${esc(refOf(last))}` : ''}</p>` : ''}
+    <input class="search" id="bagSearch" type="search" placeholder="Find a bag by code, steps or contents" value="${esc(S.q)}" autocomplete="off">
+    <div id="bagList" class="stack">${bagListHTML(p)}</div>
+    <button type="button" class="btn primary big fab" data-act="addBag">${ico.plus}Add bag</button>`;
+}
+function bagRow(b, p) {
+  const meta = [b.pieces && `~${fmt(b.pieces)} pcs`, b.tub, b.notes].filter(Boolean).join(' · ');
+  return `<button type="button" class="bag ${b.kind !== 'stage' ? 'pinned' : ''}" data-act="editBag" data-id="${b.id}">
+    <span class="tag lg">${esc(codeOf(b, p))}</span>
+    <span style="min-width:0"><span class="ref">${esc(line2(b))}</span><div class="meta">${esc(meta) || '&nbsp;'}</div></span>
+    <span class="row" style="gap:6px">${b.rebuiltAt ? `<span class="tick" title="Rebuilt">${ico.check}</span>` : ''}${b.photoId ? `<img class="thumb" alt="" data-photo="${b.photoId}">` : ''}</span>
+  </button>`;
+}
+function bagListHTML(p) {
+  const q = S.q.trim().toLowerCase();
+  if (q) {
+    const hits = ordered(p.id).filter(b => [codeOf(b, p), line2(b), b.notes, b.tub].join(' ').toLowerCase().includes(q));
+    return hits.length ? `<div class="group">${hits.map(b => bagRow(b, p)).join('')}</div>` : `<p class="muted">No bag matches “${esc(S.q)}”.</p>`;
+  }
+  const pins = KINDS.map(k => {
+    const b = specialBag(p.id, k);
+    return b ? bagRow(b, p) : `<button type="button" class="bag missing" data-act="addBag" data-kind="${k}"><span class="tag ghost lg">${esc(p.code)}-${SPECIAL[k].suffix}</span><span>${esc(SPECIAL[k].title)}</span><span>${ico.plus.replace('<svg', '<svg width="22" height="22"')}</span></button>`;
+  }).join('');
+  const groups = stageGroups(p.id);
+  const max = Math.max(p.stages || 0, ...groups.keys(), 0);
+  let stagesHTML = '', gap = [];
+  const flushGap = () => { if (gap.length) { stagesHTML += `<div class="gap-row">Stage ${gap.length > 1 ? `${gap[0]}–${gap[gap.length - 1]}` : gap[0]}: nothing bagged yet</div>`; gap = []; } };
+  for (let i = 1; i <= max; i++) {
+    const g = groups.get(i);
+    if (!g) { gap.push(i); continue; }
+    flushGap();
+    stagesHTML += `<div class="group"><div class="group-h"><h3>Stage ${i}</h3><span class="m tnum">${g.length} bag${g.length === 1 ? '' : 's'} · ~${fmt(g.reduce((s, b) => s + (b.pieces || 0), 0))} pcs</span></div>${g.map(b => bagRow(b, p)).join('')}</div>`;
+  }
+  flushGap();
+  return `<div class="group"><div class="group-h"><h3>Special bags</h3><span class="m">pinned</span></div><div class="pins">${pins}</div></div>
+    ${groups.size ? stagesHTML : `<div class="notice">No stage bags yet. Start with the last stage of the booklet: tap <b>Add bag</b> as each section comes apart.</div>`}`;
+}
+
+/* ---------- Bag form ---------- */
+let F = null;
+function newBag(p, kind = 'stage') {
+  const mine = [...bagsOf(p.id)].sort((a, b) => b.createdAt - a.createdAt);
+  const last = mine.find(b => b.kind === 'stage');
+  const stage = last?.stage ?? (p.stages || 1);
+  let booklet = last ? last.booklet : (p.booklets || null), stepTo = null;
+  // Teardown runs backwards, so the next bag usually ends one step before the last one started.
+  if (last && Number.isFinite(lowStep(last))) {
+    if (lowStep(last) > 1) stepTo = lowStep(last) - 1;
+    else if (booklet > 1) booklet -= 1;
+  }
+  return { id: null, projectId: p.id, kind, stage, letter: nextLetter(p.id, stage), letterTouched: false, booklet, stepFrom: null, stepTo, pieces: null, notes: '', tub: mine[0]?.tub || '', photoId: null, photoBlob: null, photoRemoved: false, previewURL: null };
+}
+function openBag(f) {
+  F = f; renderBagForm();
+  const d = $('#bagDlg');
+  if (!d.open) d.showModal();
+}
+const stepper = (f, v, label) => `<div class="stepper"><button type="button" data-act="step" data-f="${f}" data-d="-1" aria-label="${label} down">−</button><input class="inp n" id="f_${f}" inputmode="numeric" pattern="[0-9]*" value="${v ?? ''}" autocomplete="off"><button type="button" data-act="step" data-f="${f}" data-d="1" aria-label="${label} up">+</button></div>`;
+function renderBagForm() {
+  const p = proj(F.projectId), isNew = !F.id, isStage = F.kind === 'stage';
+  const taken = new Set(bagsOf(p.id).filter(b => b.kind !== 'stage' && b.id !== F.id).map(b => b.kind));
+  const tubs = [...new Set(bagsOf(p.id).map(b => b.tub).filter(Boolean))];
+  const photoSrc = F.previewURL || '';
+  $('#bagDlg').innerHTML = `<form id="bagForm" novalidate>
+    <div class="dlg-head"><button type="button" class="btn ghost" data-act="closeDlg">Cancel</button><h2>${isNew ? 'New bag' : 'Edit bag'}</h2><span class="sp"></span></div>
+    <div class="dlg-body">
+      <div class="preview" id="bagPreview"></div>
+      ${isNew ? `<div class="seg" role="group" aria-label="Bag type">
+        <button type="button" class="chip" data-act="kind" data-k="stage" aria-pressed="${isStage}">Stage bag</button>
+        ${KINDS.map(k => `<button type="button" class="chip" data-act="kind" data-k="${k}" aria-pressed="${F.kind === k}" ${taken.has(k) ? 'disabled title="Already packed"' : ''}>${esc(p.code)}-${SPECIAL[k].suffix}</button>`).join('')}
+      </div>` : ''}
+      ${isStage ? `<div class="grid2">
+        <div class="field"><label for="f_stage">Stage</label>${stepper('stage', F.stage, 'Stage')}</div>
+        <div class="field"><span class="lab">Bag letter</span><div class="chips" id="letterChips"></div></div>
+      </div>
+      <div class="grid2">
+        <div class="field"><label for="f_booklet">Booklet</label>${stepper('booklet', F.booklet, 'Booklet')}</div>
+        <div class="field"><label for="f_stepFrom">Steps</label><div class="range"><input class="inp n" id="f_stepFrom" inputmode="numeric" pattern="[0-9]*" placeholder="from" value="${F.stepFrom ?? ''}" autocomplete="off"><span class="muted">–</span><input class="inp n" id="f_stepTo" inputmode="numeric" pattern="[0-9]*" placeholder="to" value="${F.stepTo ?? ''}" autocomplete="off"></div></div>
+      </div>` : ''}
+      <div class="field"><label for="f_pieces">Rough piece count <span class="opt">optional</span></label>
+        <div class="pcs"><input class="inp n" id="f_pieces" inputmode="numeric" pattern="[0-9]*" value="${F.pieces ?? ''}" placeholder="~" autocomplete="off">${[100, 150, 200, 250, 300].map(n => `<button type="button" class="chip" data-act="pcs" data-n="${n}">${n}</button>`).join('')}</div>
+        <p class="hint" id="pcsHint"></p></div>
+      <div class="field"><label for="f_notes">Contents <span class="opt">optional</span></label><textarea class="inp" id="f_notes" rows="2" placeholder="${esc(isStage ? 'e.g. left mandible, cockpit greebles' : SPECIAL[F.kind].hint)}">${esc(F.notes)}</textarea></div>
+      <div class="grid2">
+        <div class="field"><label for="f_tub">Tub or box <span class="opt">optional</span></label><input class="inp" id="f_tub" list="tubList" value="${esc(F.tub)}" placeholder="Tub 1" autocomplete="off"><datalist id="tubList">${tubs.map(t => `<option value="${esc(t)}">`).join('')}</datalist></div>
+        <div class="field"><span class="lab">Photo <span class="opt">optional</span></span><div class="photo">
+          ${photoSrc ? `<img src="${photoSrc}" alt="Bag photo">` : (F.photoId && !F.photoRemoved ? `<img data-photo="${F.photoId}" alt="Bag photo">` : '')}
+          <label class="btn">${ico.camera}<span>${(photoSrc || (F.photoId && !F.photoRemoved)) ? 'Replace' : 'Add photo'}</span><input type="file" id="f_photo" accept="image/*" hidden></label>
+          ${(photoSrc || (F.photoId && !F.photoRemoved)) ? '<button type="button" class="btn ghost danger" data-act="removePhoto">Remove</button>' : ''}
+        </div></div>
+      </div>
+      <p class="err" id="bagErr" hidden></p>
+    </div>
+    <div class="dlg-foot">
+      ${!isNew ? '<button type="button" class="btn ghost danger" data-act="deleteBag">Delete</button>' : ''}
+      <span class="sp"></span>
+      <button class="btn ${isNew ? '' : 'primary'}" value="save">${isNew ? 'Save &amp; close' : 'Save'}</button>
+      ${isNew ? '<button class="btn primary" value="next">Save &amp; next bag</button>' : ''}
+    </div>
+  </form>`;
+  hydratePhotos($('#bagDlg'));
+  updateBagPreview();
+}
+function updateBagPreview() {
+  const p = proj(F.projectId);
+  const b = { ...F };
+  $('#bagPreview').innerHTML = `<span class="tag xl">${esc(codeOf(b, p))}</span><span class="l2">${esc(line2(b))}</span>`;
+  const lc = $('#letterChips');
+  if (lc) {
+    const used = new Map(bagsOf(p.id).filter(x => x.kind === 'stage' && x.stage === F.stage && x.id !== F.id).map(x => [x.letter, x]));
+    const n = Math.min(26, Math.max(3, ...[...used.keys(), F.letter].map(l => LETTERS.indexOf(l) + 2)));
+    lc.innerHTML = [...LETTERS.slice(0, n)].map(L => `<button type="button" class="chip" data-act="letter" data-l="${L}" aria-pressed="${F.letter === L}" ${used.has(L) ? `disabled title="${esc(p.code)}-${F.stage}-${L} is already packed"` : ''}>${L}</button>`).join('');
+  }
+  const h = $('#pcsHint');
+  if (h) {
+    const big = (F.pieces || 0) > 300;
+    h.className = 'hint' + (big ? ' warn' : '');
+    const used = new Set(bagsOf(p.id).filter(x => x.kind === 'stage' && x.stage === F.stage && x.id !== F.id).map(x => x.letter));
+    const nextL = [...LETTERS].find(L => L !== F.letter && !used.has(L)) || 'Z';
+    h.textContent = big && F.kind === 'stage' ? `Over ~300 pieces. Consider splitting the rest into ${p.code}-${F.stage}-${nextL}.` : (F.kind === 'stage' ? 'Aim for 200–300 pieces per bag.' : '');
+  }
+  $('#bagDlg').querySelectorAll('[data-act="pcs"]').forEach(c => c.setAttribute('aria-pressed', String(F.pieces === +c.dataset.n)));
+}
+function bagFormInput(e) {
+  if (!F) return;
+  const t = e.target, k = t.id?.replace(/^f_/, '');
+  if (!k) return;
+  if (k === 'photo') return;
+  if (['stage', 'booklet', 'stepFrom', 'stepTo', 'pieces'].includes(k)) F[k] = int(t.value);
+  else F[k] = t.value;
+  if (k === 'stage') {
+    if (!F.letterTouched || bagsOf(F.projectId).some(b => b.kind === 'stage' && b.stage === F.stage && b.letter === F.letter && b.id !== F.id)) F.letter = nextLetter(F.projectId, F.stage, F.id);
+  }
+  updateBagPreview();
+}
+async function saveBag(andNext) {
+  const p = proj(F.projectId), isStage = F.kind === 'stage';
+  const err = m => { const e = $('#bagErr'); e.textContent = m; e.hidden = false; e.scrollIntoView({ block: 'nearest' }); };
+  if (isStage) {
+    if (!F.stage || F.stage < 1) return err('Enter a stage number.');
+    if (bagsOf(p.id).some(b => b.kind === 'stage' && b.stage === F.stage && b.letter === F.letter && b.id !== F.id)) return err(`${p.code}-${F.stage}-${F.letter} is already packed. Pick another letter.`);
+  } else if (bagsOf(p.id).some(b => b.kind === F.kind && b.id !== F.id)) return err(`${p.code}-${SPECIAL[F.kind].suffix} is already packed.`);
+  const old = F.id ? S.bags.find(b => b.id === F.id) : null;
+  let photoId = F.photoRemoved ? null : F.photoId;
+  if (F.photoBlob) { photoId = uid(); await DB.put('photos', { id: photoId, blob: F.photoBlob }); }
+  if (old?.photoId && old.photoId !== photoId) await DB.del('photos', old.photoId);
+  const rec = {
+    id: F.id || uid(), projectId: p.id, kind: F.kind,
+    stage: isStage ? F.stage : null, letter: isStage ? F.letter : null, booklet: isStage ? F.booklet : null,
+    stepFrom: isStage ? F.stepFrom : null, stepTo: isStage ? F.stepTo : null,
+    pieces: F.pieces, notes: (F.notes || '').trim(), tub: (F.tub || '').trim(), photoId,
+    createdAt: old?.createdAt || Date.now(), updatedAt: Date.now(), rebuiltAt: old?.rebuiltAt || null, labelledAt: old?.labelledAt || null,
+  };
+  let msg = `Saved ${codeOf(rec, p)}`;
+  if (old && old.labelledAt && (codeOf(old, p) !== codeOf(rec, p) || line2(old) !== line2(rec))) { rec.labelledAt = null; msg += '. Its label changed, so reprint it.'; }
+  await DB.put('bags', rec);
+  S.bags = S.bags.filter(b => b.id !== rec.id).concat(rec);
+  await touch(p);
+  if (F.previewURL) URL.revokeObjectURL(F.previewURL);
+  toast(msg);
+  if (andNext) { openBag(newBag(p)); $('#f_stepFrom')?.focus(); }
+  else { F = null; $('#bagDlg').close(); }
+  render();
+}
+async function touch(p) { p.updatedAt = Date.now(); await DB.put('projects', p); }
+
+/* ---------- Project form ---------- */
+let PF = null;
+function openProject(p, falcon) {
+  PF = p ? { ...p, codeTouched: true } : (falcon ? { name: 'Millennium Falcon', setNumber: '75192', code: 'F', pieces: 7541, codeTouched: true } : { name: '', setNumber: '', code: '', codeTouched: false });
+  const v = k => esc(PF[k] ?? '');
+  $('#projDlg').innerHTML = `<form id="projForm" novalidate>
+    <div class="dlg-head"><button type="button" class="btn ghost" data-act="closeDlg">Cancel</button><h2>${p ? 'Edit set' : 'New set'}</h2><span class="sp"></span></div>
+    <div class="dlg-body">
+      <div class="field"><label for="p_name">Set name</label><input class="inp" id="p_name" value="${v('name')}" placeholder="e.g. Millennium Falcon" required autocomplete="off"></div>
+      <div class="grid2">
+        <div class="field"><label for="p_setNumber">Set number <span class="opt">optional</span></label><input class="inp n" id="p_setNumber" value="${v('setNumber')}" placeholder="75192" inputmode="numeric" autocomplete="off"></div>
+        <div class="field"><label for="p_code">Bag code prefix</label><input class="inp n" id="p_code" value="${v('code')}" placeholder="F" maxlength="6" autocomplete="off" style="text-transform:uppercase"></div>
+      </div>
+      <p class="hint" id="p_codeHint"></p>
+      <div class="grid2">
+        <div class="field"><label for="p_pieces">Piece count <span class="opt">optional</span></label><input class="inp n" id="p_pieces" value="${v('pieces')}" inputmode="numeric" autocomplete="off"></div>
+        <div class="field"><label for="p_booklets">Booklets <span class="opt">optional</span></label><input class="inp n" id="p_booklets" value="${v('booklets')}" inputmode="numeric" autocomplete="off"></div>
+      </div>
+      <div class="field"><label for="p_stages">Build stages <span class="opt">optional</span></label><input class="inp n" id="p_stages" value="${v('stages')}" inputmode="numeric" autocomplete="off"><p class="hint">Usually the numbered bag groups in the instructions. Teardown starts at the last one.</p></div>
+      <div class="field"><label for="p_notes">Notes <span class="opt">optional</span></label><textarea class="inp" id="p_notes" rows="2" placeholder="e.g. Tub 1 = hull, Tub 2 = dish and mandibles">${v('notes')}</textarea></div>
+      <p class="err" id="projErr" hidden></p>
+    </div>
+    <div class="dlg-foot">${p ? '<button type="button" class="btn ghost danger" data-act="deleteProject">Delete set</button>' : ''}<span class="sp"></span><button class="btn primary">${p ? 'Save' : 'Create set'}</button></div>
+  </form>`;
+  projHint();
+  $('#projDlg').showModal();
+}
+function projHint() {
+  const c = ($('#p_code')?.value || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+  $('#p_codeHint').innerHTML = c ? `Bags will be labelled <span class="tag">${esc(c)}-3-A</span> <span class="tag">${esc(c)}-SPARE</span>` : 'A short letter or two, like F for Falcon.';
+}
+async function saveProject() {
+  const val = id => $('#' + id).value.trim();
+  const code = val('p_code').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 6);
+  const err = m => { const e = $('#projErr'); e.textContent = m; e.hidden = false; };
+  if (!val('p_name')) return err('Give the set a name.');
+  if (!code) return err('Add a bag code prefix, like F.');
+  if (S.projects.some(x => x.code === code && x.id !== PF.id)) return err(`Another set already uses ${code}. Pick a different prefix so bags never get mixed up.`);
+  const p = Object.assign(PF.id ? proj(PF.id) : { id: uid(), createdAt: Date.now() }, {
+    name: val('p_name'), setNumber: val('p_setNumber'), code, pieces: int(val('p_pieces')), booklets: int(val('p_booklets')), stages: int(val('p_stages')), notes: val('p_notes'), updatedAt: Date.now(),
+  });
+  await DB.put('projects', p);
+  if (!PF.id) S.projects.push(p);
+  $('#projDlg').close(); PF = null;
+  if (location.hash === `#/p/${p.id}/bags`) render(); else go(`#/p/${p.id}/bags`);
+}
+
+/* ---------- Index tab ---------- */
+function indexHTML(p) {
+  const s = stats(p);
+  const row = b => `<tr><td class="cb"><span></span></td><td class="code">${esc(codeOf(b, p))}</td><td>${esc(b.kind === 'stage' ? (refOf(b) || '—') : SPECIAL[b.kind].title)}</td><td class="n">${b.pieces ? '~' + fmt(b.pieces) : ''}</td><td>${esc(b.notes)}</td><td>${esc(b.tub)}</td></tr>`;
+  const sp = specialBags(p.id);
+  let rows = sp.length ? `<tr class="gh"><th colspan="6">Special bags</th></tr>${sp.map(row).join('')}` : '';
+  for (const [st, g] of stageGroups(p.id)) rows += `<tr class="gh"><th colspan="6">Stage ${st} <span style="font-weight:400">· ${g.length} bag${g.length === 1 ? '' : 's'} · ~${fmt(g.reduce((a, b) => a + (b.pieces || 0), 0))} pcs</span></th></tr>${g.map(row).join('')}`;
+  return `<div class="idx-head"><h1>${esc(p.name)} <span class="muted" style="font-weight:600">· master index</span></h1>
+      <span class="tnum">${[p.setNumber && 'Set ' + esc(p.setNumber), `${s.n} bags`, `~${fmt(s.pcs)}${p.pieces ? ' of ' + fmt(p.pieces) : ''} pieces`, `Printed ${new Date().toLocaleDateString('en-AU', { day: 'numeric', month: 'short', year: 'numeric' })}`].filter(Boolean).join(' · ')}</span></div>
+    ${s.n ? `<div class="tablewrap"><table class="idx"><thead><tr><th class="cb"></th><th>Bag</th><th>Booklet · steps</th><th style="text-align:right">Pcs</th><th>Contents</th><th>Tub</th></tr></thead><tbody>${rows}</tbody></table></div>` : '<p class="muted">No bags yet.</p>'}
+    ${p.notes ? `<p style="margin-top:12px"><b>Notes:</b> ${esc(p.notes)}</p>` : ''}`;
+}
+function viewIndex(p) {
+  return `<div class="row"><p class="hint" style="flex:1;min-width:200px">The slip that lives in the tub. Rebuild order: special bags, then stages by booklet and step.</p><button type="button" class="btn primary" data-act="printIndex">${ico.print}Print index</button></div>
+    <section class="panel">${indexHTML(p)}</section>`;
+}
+
+/* ---------- Labels tab ---------- */
+const PRESETS = {
+  L7160: { name: 'Avery L7160 · A4 · 21 per sheet · 63.5 × 38.1 mm', page: [210, 297], cols: 3, rows: 7, w: 63.5, h: 38.1, mt: 15.15, ml: 7.25, gx: 2.5, gy: 0 },
+  L7159: { name: 'Avery L7159 · A4 · 24 per sheet · 63.5 × 33.9 mm', page: [210, 297], cols: 3, rows: 8, w: 63.5, h: 33.9, mt: 12.9, ml: 7.25, gx: 2.5, gy: 0 },
+  L7163: { name: 'Avery L7163 · A4 · 14 per sheet · 99.1 × 38.1 mm', page: [210, 297], cols: 2, rows: 7, w: 99.1, h: 38.1, mt: 15.15, ml: 4.65, gx: 2.5, gy: 0 },
+  L7173: { name: 'Avery L7173 · A4 · 10 per sheet · 99.1 × 57 mm', page: [210, 297], cols: 2, rows: 5, w: 99.1, h: 57, mt: 6, ml: 4.65, gx: 2.5, gy: 0 },
+  L7651: { name: 'Avery L7651 · A4 · 65 per sheet · 38.1 × 21.2 mm', page: [210, 297], cols: 5, rows: 13, w: 38.1, h: 21.2, mt: 10.7, ml: 4.75, gx: 2.5, gy: 0 },
+  A5160: { name: 'Avery 5160 · US Letter · 30 per sheet · 66.7 × 25.4 mm', page: [215.9, 279.4], cols: 3, rows: 10, w: 66.675, h: 25.4, mt: 12.7, ml: 4.7625, gx: 3.175, gy: 0 },
+  CUT:   { name: 'Plain A4 paper · 24 cut-out labels', page: [210, 297], cols: 3, rows: 8, w: 63, h: 34.5, mt: 10.5, ml: 10.5, gx: 0, gy: 0, outline: true },
+};
+const LAYKEYS = [['page0', 'Page width'], ['page1', 'Page height'], ['cols', 'Columns'], ['rows', 'Rows'], ['w', 'Label width'], ['h', 'Label height'], ['mt', 'Top margin'], ['ml', 'Left margin'], ['gx', 'Gap across'], ['gy', 'Gap down'], ['dx', 'Nudge right'], ['dy', 'Nudge down']];
+function layout() {
+  const o = S.lo;
+  const base = o.preset === 'custom' && o.custom ? o.custom : (PRESETS[o.preset] || PRESETS.L7160);
+  return { ...base, cols: Math.max(1, base.cols | 0), rows: Math.max(1, base.rows | 0), outline: o.preset === 'CUT' || o.outline };
+}
+const saveLO = () => ls.set('bt_labels', S.lo);
+function labelInner(p, b, L) {
+  const c = codeOf(b, p), r = line2(b);
+  const x = S.lo.extra ? [p.name, b.pieces ? `~${b.pieces} pcs` : '', b.tub].filter(Boolean).join(' · ') : '';
+  const pad = Math.min(L.w, L.h) * 0.09, avail = L.w - pad * 2;
+  const f1 = Math.min(L.h * (x ? 0.36 : 0.44), avail / (0.64 * c.length));
+  const f2 = Math.min(L.h * 0.15, avail / (0.52 * Math.max(r.length, 1)), f1 * 0.5);
+  const f3 = x ? Math.min(L.h * 0.11, avail / (0.5 * x.length), f2 * 0.85) : 0;
+  return `<span class="c" style="font-size:${f1.toFixed(2)}mm">${esc(c)}</span><span class="r" style="font-size:${f2.toFixed(2)}mm">${esc(r)}</span>${x ? `<span class="x" style="font-size:${f3.toFixed(2)}mm">${esc(x)}</span>` : ''}`;
+}
+function sheetsHTML(p, bags, preview) {
+  const L = layout(), per = L.cols * L.rows, start = Math.min(Math.max(1, S.lo.start | 0), per);
+  const slots = [...Array(start - 1).fill(null), ...bags];
+  const sheets = [];
+  for (let i = 0; i < slots.length; i += per) sheets.push(slots.slice(i, i + per));
+  if (!sheets.length) sheets.push([]);
+  const dx = fl(S.lo.dx) || 0, dy = fl(S.lo.dy) || 0;
+  return sheets.map(sh => {
+    if (preview) while (sh.length < per) sh.push(null);
+    const cells = sh.map((b, i) => {
+      const x = L.ml + dx + (i % L.cols) * (L.w + L.gx), y = L.mt + dy + Math.floor(i / L.cols) * (L.h + L.gy);
+      return `<div class="lbl ${b && L.outline ? 'outline' : ''} ${b ? '' : 'empty'}" style="left:${x}mm;top:${y}mm;width:${L.w}mm;height:${L.h}mm">${b ? labelInner(p, b, L) : ''}</div>`;
+    }).join('');
+    const sheet = `<div class="sheet" style="width:${L.page[0]}mm;height:${L.page[1]}mm">${cells}</div>`;
+    return preview ? `<div class="sheet-frame" data-w="${L.page[0]}" data-h="${L.page[1]}">${sheet}</div>` : sheet;
+  }).join('');
+}
+function fitSheets() {
+  document.querySelectorAll('.sheet-frame').forEach(fr => {
+    const pxmm = 96 / 25.4, w = +fr.dataset.w * pxmm, h = +fr.dataset.h * pxmm;
+    const k = Math.min(1, (fr.parentElement.clientWidth || w) / w);
+    fr.style.width = (w * k) + 'px'; fr.style.height = (h * k) + 'px';
+    fr.firstElementChild.style.transform = `scale(${k})`;
+  });
+}
+function labelBags(p) {
+  if (S.labelSelFor !== p.id || !S.labelSel) {
+    S.labelSelFor = p.id;
+    const all = ordered(p.id), fresh = all.filter(b => !b.labelledAt);
+    S.labelSel = new Set((fresh.length ? fresh : all).map(b => b.id));
+  }
+  return ordered(p.id).filter(b => S.labelSel.has(b.id));
+}
+function viewLabels(p) {
+  const L = layout(), per = L.cols * L.rows, chosen = labelBags(p), all = ordered(p.id);
+  const lv = k => k === 'page0' ? L.page[0] : k === 'page1' ? L.page[1] : (k === 'dx' || k === 'dy') ? (S.lo[k] || 0) : L[k];
+  return `<div class="labels-grid">
+    <div class="stack">
+      <section class="panel stack">
+        <div class="field"><label for="lo_preset">Label sheet</label><select class="inp" id="lo_preset">
+          ${Object.entries(PRESETS).map(([k, v]) => `<option value="${k}" ${S.lo.preset === k ? 'selected' : ''}>${esc(v.name)}</option>`).join('')}
+          <option value="custom" ${S.lo.preset === 'custom' ? 'selected' : ''}>Custom size</option></select></div>
+        <div class="grid2">
+          <div class="field"><label for="lo_start">Start at label</label><input class="inp n" id="lo_start" inputmode="numeric" value="${Math.min(S.lo.start, per)}"><span class="hint">Skip used labels on a part-used sheet (1–${per})</span></div>
+          <div class="stack" style="gap:2px">
+            <label class="check"><input type="checkbox" id="lo_outline" ${L.outline ? 'checked' : ''} ${S.lo.preset === 'CUT' ? 'disabled' : ''}>Cutting outlines</label>
+            <label class="check"><input type="checkbox" id="lo_extra" ${S.lo.extra ? 'checked' : ''}>Add set name, pieces and tub</label>
+          </div>
+        </div>
+        <details id="layDetails" ${S.layOpen ? 'open' : ''}><summary>Adjust layout (mm)</summary><div class="lay">
+          ${LAYKEYS.map(([k, l]) => `<div class="field"><label for="lo_${k}">${l}</label><input class="inp n" id="lo_${k}" inputmode="decimal" value="${+(+lv(k)).toFixed(3)}"></div>`).join('')}
+        </div><p class="hint">Editing a size switches to Custom. Nudge shifts everything if your printer prints a little off.</p></details>
+        <button type="button" class="btn primary big" id="printBtn" data-act="printLabels" ${chosen.length ? '' : 'disabled'}>${printBtnHTML(chosen.length)}</button>
+        <p class="hint">In the print dialog choose <b>Actual size</b> or 100% scale and no margins. Try one sheet on plain paper first and hold it against a label sheet up to the light.</p>
+      </section>
+      <section class="panel stack">
+        <div class="row"><h2 style="flex:1">Bags to print</h2><span class="muted tnum" id="selCount">${chosen.length} of ${all.length}</span></div>
+        <div class="row" style="gap:6px"><button type="button" class="btn sm" data-act="sel" data-s="fresh">Not printed yet</button><button type="button" class="btn sm" data-act="sel" data-s="all">All</button><button type="button" class="btn sm" data-act="sel" data-s="none">None</button></div>
+        ${all.length ? `<div class="sel-list">${all.map(b => `<label><input type="checkbox" data-sel="${b.id}" ${S.labelSel.has(b.id) ? 'checked' : ''}><span class="tag">${esc(codeOf(b, p))}</span><span class="r">${esc(line2(b))}${b.labelledAt ? ' · printed' : ''}</span></label>`).join('')}</div>` : '<p class="muted">Add bags first, then print their labels here.</p>'}
+      </section>
+    </div>
+    <section class="stack"><div class="eyebrow">Preview</div><div class="sheets" id="sheetPreview">${sheetsHTML(p, chosen, true)}</div></section>
+  </div>`;
+}
+function printBtnHTML(n) {
+  const L = layout(), per = L.cols * L.rows;
+  const sheets = n ? Math.ceil((Math.min(S.lo.start, per) - 1 + n) / per) : 0;
+  return `${ico.print}Print ${n} label${n === 1 ? '' : 's'}${sheets ? ` · ${sheets} sheet${sheets === 1 ? '' : 's'}` : ''}`;
+}
+function refreshLabels() {
+  const y = scrollY; render(); scrollTo(0, y);
+}
+
+/* ---------- Rebuild tab ---------- */
+function rebuildChain(pid) {
+  const doc = specialBag(pid, 'doc');
+  return [...(doc ? [doc] : []), ...stageBags(pid)];
+}
+function crow(b, p, next) {
+  const meta = [b.kind === 'stage' ? refOf(b) : SPECIAL[b.kind].title, b.tub, b.notes].filter(Boolean).join(' · ');
+  return `<button type="button" class="crow ${b.rebuiltAt ? 'done' : ''} ${next ? 'is-next' : ''}" data-act="toggleRebuilt" data-id="${b.id}" aria-pressed="${!!b.rebuiltAt}">
+    <span class="box">${ico.check}</span><span class="tag lg">${esc(codeOf(b, p))}</span><span class="meta">${esc(meta)}</span></button>`;
+}
+function viewRebuild(p, s) {
+  if (!s.n) return `<div class="notice">No bags in this set yet. Log bags on the Bags tab during teardown, and they will line up here in build order.</div>`;
+  const chain = rebuildChain(p.id);
+  const next = chain.find(b => !b.rebuiltAt) || ordered(p.id).find(b => !b.rebuiltAt);
+  const pct = Math.round(s.done / s.n * 100);
+  const keep = ['print', 'spare'].map(k => specialBag(p.id, k)).filter(Boolean);
+  const hide = b => S.hideDone && b.rebuiltAt && b !== next;
+  let groups = '';
+  for (const [st, g] of stageGroups(p.id)) {
+    const vis = g.filter(b => !hide(b));
+    const d = g.filter(b => b.rebuiltAt).length;
+    if (!vis.length) continue;
+    groups += `<div class="group"><div class="group-h"><h3>Stage ${st}</h3><span class="m tnum">${d} of ${g.length} rebuilt</span></div>${vis.map(b => crow(b, p, b === next)).join('')}</div>`;
+  }
+  const doc = specialBag(p.id, 'doc');
+  return `<section class="panel stack" style="gap:8px">
+      <div class="row"><div class="num" style="font-family:var(--display);font-weight:800;font-size:26px">${s.done} of ${s.n} bags rebuilt</div><span class="sp"></span><span class="muted tnum">${pct}%</span></div>
+      <div class="bar ok" style="height:12px;border-radius:6px"><i style="width:${pct}%"></i></div>
+      ${studs(p, 'rebuild')}
+    </section>
+    ${next ? `<section class="next">
+      <div class="eyebrow">Open next</div>
+      <div class="row"><span class="tag xl">${esc(codeOf(next, p))}</span><div style="min-width:0"><div class="l2">${esc(line2(next))}</div><div class="muted">${esc([next.pieces && `~${fmt(next.pieces)} pcs`, next.tub && `in ${next.tub}`].filter(Boolean).join(' · '))}</div></div></div>
+      ${next.notes ? `<div>${esc(next.notes)}</div>` : ''}
+      ${next.photoId ? `<img data-photo="${next.photoId}" alt="Photo of ${esc(codeOf(next, p))}">` : ''}
+      <button type="button" class="btn primary big" data-act="toggleRebuilt" data-id="${next.id}">${ico.check}Opened ${esc(codeOf(next, p))}</button>
+    </section>` : `<section class="next" style="border-color:var(--ok)"><h2>Rebuild complete</h2><p class="muted" style="margin:0">All ${s.n} bags are ticked off.</p></section>`}
+    <div class="row">
+      <label class="check"><input type="checkbox" id="hideDone" ${S.hideDone ? 'checked' : ''}>Hide rebuilt bags</label>
+      <span class="sp"></span>
+      ${'wakeLock' in navigator ? `<button type="button" class="btn sm" data-act="wake" aria-pressed="${!!S.wake}">${S.wake ? 'Screen stays on' : 'Keep screen on'}</button>` : ''}
+      ${s.done ? '<button type="button" class="btn sm ghost danger" data-act="resetRebuild">Reset</button>' : ''}
+    </div>
+    ${doc || keep.length ? `<div class="group"><div class="group-h"><h3>Special bags</h3><span class="m">${doc ? 'open DOC first; ' : ''}keep PRINT and SPARE handy</span></div>
+      ${[doc, ...keep].filter(b => b && !hide(b)).map(b => crow(b, p, b === next)).join('')}</div>` : ''}
+    ${groups}`;
+}
+async function toggleRebuilt(id, silent) {
+  const b = S.bags.find(x => x.id === id); if (!b) return;
+  const p = proj(b.projectId);
+  b.rebuiltAt = b.rebuiltAt ? null : Date.now();
+  await DB.put('bags', b); await touch(p);
+  const y = scrollY; render(); scrollTo(0, y);
+  if (!silent) toast(b.rebuiltAt ? `${codeOf(b, p)} rebuilt` : `${codeOf(b, p)} back to unopened`, { label: 'Undo', run: () => toggleRebuilt(id, true) });
+}
+async function requestWake() {
+  try { S.wake = await navigator.wakeLock.request('screen'); S.wake.addEventListener('release', () => { S.wake = null; }); } catch { S.wake = null; toast('This browser would not keep the screen on.'); }
+}
+function releaseWake() { if (S.wake) { S.wake.release().catch(() => {}); S.wake = null; } }
+
+/* ---------- printing ---------- */
+let pendingMark = null;
+async function printJob(html, pageCss) {
+  $('#printRoot').innerHTML = html;
+  $('#pageStyle').textContent = pageCss;
+  try { await document.fonts.ready; } catch {}
+  await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+  window.print();
+}
+addEventListener('afterprint', () => {
+  if (!pendingMark) return;
+  const { ids, pid } = pendingMark; pendingMark = null;
+  toast(`Mark ${ids.length} label${ids.length === 1 ? '' : 's'} as printed?`, { label: 'Mark printed', run: async () => {
+    for (const id of ids) { const b = S.bags.find(x => x.id === id); if (b) { b.labelledAt = Date.now(); await DB.put('bags', b); } }
+    S.labelSel = null; S.labelSelFor = null;
+    if (S.route.id === pid) render();
+  } });
+});
+
+/* ---------- backup ---------- */
+const blobToData = b => new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(r.result); r.onerror = rej; r.readAsDataURL(b); });
+async function exportData() {
+  const photos = await DB.all('photos');
+  const data = { app: 'bag-and-tag', version: 1, exportedAt: new Date().toISOString(), projects: S.projects, bags: S.bags,
+    photos: await Promise.all(photos.map(async ph => ({ id: ph.id, data: await blobToData(ph.blob) }))) };
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([JSON.stringify(data)], { type: 'application/json' }));
+  a.download = `bag-and-tag-backup-${new Date().toISOString().slice(0, 10)}.json`;
+  document.body.append(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 10000);
+  toast('Backup saved to your downloads');
+}
+async function importData(file) {
+  let data;
+  try { data = JSON.parse(await file.text()); } catch { return toast('That file is not a Bag & Tag backup.'); }
+  if (data?.app !== 'bag-and-tag' || !Array.isArray(data.projects)) return toast('That file is not a Bag & Tag backup.');
+  const ok = await ask({ title: 'Restore this backup?', body: `${data.projects.length} sets and ${data.bags?.length || 0} bags. Sets already here with the same ID are replaced; others are kept.`, ok: 'Restore' });
+  if (!ok) return;
+  for (const ph of data.photos || []) { try { await DB.put('photos', { id: ph.id, blob: await (await fetch(ph.data)).blob() }); } catch {} }
+  for (const p of data.projects) await DB.put('projects', p);
+  for (const b of data.bags || []) await DB.put('bags', b);
+  await load(); render(); toast('Backup restored');
+}
+
+/* ---------- example data ---------- */
+async function loadExample() {
+  const code = S.projects.some(p => p.code === 'X') ? 'EX' + (S.projects.length + 1) : 'X';
+  const p = { id: uid(), name: 'Example teardown', setNumber: '00000', code, pieces: 7500, booklets: 4, stages: 17, example: true,
+    notes: 'Made-up bags to show how the app works. Delete this set from Edit set when you are done.', createdAt: Date.now(), updatedAt: Date.now() };
+  const t0 = Date.now() - 3600e3;
+  const rows = [
+    ['doc', null, null, null, null, null, null, 'Booklets 1–4, sticker sheet', 'Tub 1'],
+    ['print', null, null, null, null, null, 40, 'Printed tiles, plaque, minifig torsos', 'Tub 1'],
+    ['stage', 17, 'A', 4, 590, 612, 180, 'Top hull plates, rear', 'Tub 1'],
+    ['stage', 17, 'B', 4, 568, 589, 220, 'Top hull plates, front', 'Tub 1'],
+    ['stage', 16, 'A', 4, 541, 567, 260, 'Radar dish and turret', 'Tub 1'],
+    ['stage', 16, 'B', 4, 520, 540, 310, 'Side panels, port', 'Tub 1'],
+    ['stage', 16, 'C', 4, 500, 519, 150, 'Side panels, starboard', 'Tub 2'],
+    ['stage', 15, 'A', 3, 470, 499, 240, 'Cockpit and corridor', 'Tub 2'],
+    ['stage', 15, 'B', 3, 452, 469, 200, 'Mandible greebles', 'Tub 2'],
+  ];
+  await DB.put('projects', p); S.projects.push(p);
+  let i = 0;
+  for (const [kind, stage, letter, booklet, a, z, pieces, notes, tub] of rows) {
+    const b = { id: uid(), projectId: p.id, kind, stage, letter, booklet, stepFrom: a, stepTo: z, pieces, notes, tub, photoId: null, createdAt: t0 + (i++) * 60e3, updatedAt: Date.now(), rebuiltAt: null, labelledAt: null };
+    await DB.put('bags', b); S.bags.push(b);
+  }
+  go(`#/p/${p.id}/bags`);
+}
+
+/* ---------- events ---------- */
+const A = {
+  newProject: el => openProject(null, el.dataset.falcon),
+  editProject: () => openProject(proj(S.route.id)),
+  loadExample,
+  addBag: el => openBag(newBag(proj(S.route.id), el.dataset.kind || 'stage')),
+  editBag: el => { const b = S.bags.find(x => x.id === el.dataset.id); openBag({ ...b, letterTouched: true, photoBlob: null, photoRemoved: false, previewURL: null }); },
+  closeDlg: el => el.closest('dialog').close(),
+  kind: el => { F.kind = el.dataset.k; renderBagForm(); },
+  step: el => {
+    const f = el.dataset.f, d = +el.dataset.d, inp = $('#f_' + f);
+    const v = Math.max(1, (int(inp.value) ?? (d > 0 ? 0 : 2)) + d);
+    inp.value = v; bagFormInput({ target: inp });
+  },
+  letter: el => { F.letter = el.dataset.l; F.letterTouched = true; updateBagPreview(); },
+  pcs: el => { F.pieces = +el.dataset.n; $('#f_pieces').value = F.pieces; updateBagPreview(); },
+  removePhoto: () => { if (F.previewURL) URL.revokeObjectURL(F.previewURL); F.photoBlob = null; F.previewURL = null; F.photoRemoved = true; renderBagForm(); },
+  deleteBag: async () => {
+    const b = S.bags.find(x => x.id === F.id), p = proj(b.projectId);
+    if (!await ask({ title: `Delete ${codeOf(b, p)}?`, body: 'This removes the bag and its photo from the log.', ok: 'Delete', danger: true })) return;
+    await DB.del('bags', b.id); if (b.photoId) await DB.del('photos', b.photoId);
+    S.bags = S.bags.filter(x => x.id !== b.id); await touch(p);
+    F = null; $('#bagDlg').close(); render(); toast(`Deleted ${codeOf(b, p)}`);
+  },
+  deleteProject: async () => {
+    const p = proj(PF.id), n = bagsOf(p.id).length;
+    if (!await ask({ title: `Delete ${p.name}?`, body: `This deletes the set and all ${n} bag records. Save a backup first if you might want them.`, ok: 'Delete set', danger: true })) return;
+    for (const b of bagsOf(p.id)) { await DB.del('bags', b.id); if (b.photoId) await DB.del('photos', b.photoId); }
+    await DB.del('projects', p.id);
+    S.bags = S.bags.filter(b => b.projectId !== p.id); S.projects = S.projects.filter(x => x.id !== p.id);
+    $('#projDlg').close(); PF = null; go('#/'); render();
+  },
+  toggleRebuilt: el => toggleRebuilt(el.dataset.id),
+  resetRebuild: async () => {
+    const p = proj(S.route.id);
+    if (!await ask({ title: 'Reset rebuild progress?', body: 'Every bag goes back to unopened. The bag log is not changed.', ok: 'Reset', danger: true })) return;
+    for (const b of bagsOf(p.id)) if (b.rebuiltAt) { b.rebuiltAt = null; await DB.put('bags', b); }
+    render();
+  },
+  wake: async () => { if (S.wake) { S.wakeWanted = false; releaseWake(); } else { S.wakeWanted = true; await requestWake(); } render(); },
+  sel: el => {
+    const p = proj(S.route.id), all = ordered(p.id), s = el.dataset.s;
+    S.labelSel = new Set(s === 'all' ? all.map(b => b.id) : s === 'fresh' ? all.filter(b => !b.labelledAt).map(b => b.id) : []);
+    refreshLabels();
+  },
+  printLabels: () => {
+    const p = proj(S.route.id), chosen = labelBags(p), L = layout();
+    pendingMark = { ids: chosen.map(b => b.id), pid: p.id };
+    printJob(sheetsHTML(p, chosen, false), `@page{size:${L.page[0]}mm ${L.page[1]}mm;margin:0}`);
+  },
+  printIndex: () => printJob(`<div class="print-idx">${indexHTML(proj(S.route.id))}</div>`, '@page{size:A4;margin:12mm}'),
+  exportData,
+  importData: () => $('#importFile').click(),
+};
+document.addEventListener('click', e => {
+  const el = e.target.closest('[data-act]');
+  if (!el || el.disabled) return;
+  const f = A[el.dataset.act];
+  if (f) { e.preventDefault(); f(el, e); }
+});
+document.addEventListener('input', e => {
+  const t = e.target;
+  if (t.closest('#bagDlg')) return bagFormInput(e);
+  if (t.id === 'p_code' || t.id === 'p_name') {
+    if (t.id === 'p_code') PF.codeTouched = true;
+    if (t.id === 'p_name' && !PF.codeTouched) $('#p_code').value = (t.value.trim()[0] || '').toUpperCase();
+    return projHint();
+  }
+  if (t.id === 'bagSearch') { S.q = t.value; $('#bagList').innerHTML = bagListHTML(proj(S.route.id)); hydratePhotos($('#bagList')); return; }
+  if (t.id === 'lo_start') { S.lo.start = Math.max(1, int(t.value) || 1); saveLO(); return updateSheetPreview(); }
+  if (t.id?.startsWith('lo_') && LAYKEYS.some(([k]) => 'lo_' + k === t.id)) {
+    const k = t.id.slice(3), v = fl(t.value); if (v == null) return;
+    if (k === 'dx' || k === 'dy') S.lo[k] = v;
+    else {
+      const L = layout(); const c = { ...L, page: [...L.page] }; delete c.outline; delete c.name;
+      if (k === 'page0') c.page[0] = v; else if (k === 'page1') c.page[1] = v; else c[k] = v;
+      S.lo.custom = c; if (S.lo.preset !== 'custom') { if (S.lo.preset === 'CUT') S.lo.outline = true; S.lo.preset = 'custom'; $('#lo_preset').value = 'custom'; }
+    }
+    saveLO(); updateSheetPreview();
+  }
+});
+function updateSheetPreview() {
+  const p = proj(S.route.id), el = $('#sheetPreview'); if (!el) return;
+  const chosen = labelBags(p);
+  el.innerHTML = sheetsHTML(p, chosen, true); fitSheets();
+  const b = $('#printBtn'); if (b) { b.innerHTML = printBtnHTML(chosen.length); b.disabled = !chosen.length; }
+  const c = $('#selCount'); if (c) c.textContent = `${chosen.length} of ${ordered(p.id).length}`;
+}
+document.addEventListener('change', async e => {
+  const t = e.target;
+  if (t.id === 'f_photo' && t.files[0]) {
+    try { const blob = await shrink(t.files[0]); if (F.previewURL) URL.revokeObjectURL(F.previewURL); F.photoBlob = blob; F.previewURL = URL.createObjectURL(blob); F.photoRemoved = false; renderBagForm(); }
+    catch { toast('That photo could not be read. Try another.'); }
+    return;
+  }
+  if (t.id === 'importFile' && t.files[0]) { await importData(t.files[0]); t.value = ''; return; }
+  if (t.id === 'lo_preset') { S.lo.preset = t.value; if (t.value === 'custom' && !S.lo.custom) { const L = PRESETS.L7160; S.lo.custom = { ...L, page: [...L.page] }; } saveLO(); return refreshLabels(); }
+  if (t.id === 'lo_outline') { S.lo.outline = t.checked; saveLO(); return updateSheetPreview(); }
+  if (t.id === 'lo_extra') { S.lo.extra = t.checked; saveLO(); return updateSheetPreview(); }
+  if (t.dataset.sel) { t.checked ? S.labelSel.add(t.dataset.sel) : S.labelSel.delete(t.dataset.sel); return updateSheetPreview(); }
+  if (t.id === 'hideDone') { S.hideDone = t.checked; ls.set('bt_hideDone', S.hideDone); const y = scrollY; render(); scrollTo(0, y); }
+});
+document.addEventListener('submit', e => {
+  e.preventDefault();
+  if (e.target.id === 'bagForm') saveBag(e.submitter?.value === 'next');
+  if (e.target.id === 'projForm') saveProject();
+});
+$('#bagDlg').addEventListener('close', () => { if (F?.previewURL) URL.revokeObjectURL(F.previewURL); F = null; });
+document.addEventListener('toggle', e => { if (e.target.id === 'layDetails') S.layOpen = e.target.open; }, true);
+addEventListener('hashchange', () => { S.q = ''; render(); scrollTo(0, 0); });
+addEventListener('resize', () => fitSheets());
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && S.route.tab === 'rebuild' && S.wakeWanted) requestWake(); });
+
+/* ---------- boot ---------- */
+async function load() {
+  S.projects = await DB.all('projects');
+  S.bags = await DB.all('bags');
+}
+(async () => {
+  await DB.init();
+  try { await navigator.storage?.persist?.(); } catch {}
+  await load();
+  if (!location.hash || location.hash === '#') {
+    const last = ls.get('bt_last', null);
+    if (last && proj(last)) { try { history.replaceState(null, '', `#/p/${last}/bags`); } catch {} }
+  }
+  render();
+})();
+})();
+</script>
