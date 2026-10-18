@@ -1146,7 +1146,8 @@ async function syncOnce() {
     for (const r of M.pulled) await DB.put(st, r, true);
     for (const r of M.removed) { await DB.del(st, r.id, true); if (r.photoId) await DB.del('photos', r.photoId, true); }
   }
-  S.projects = [...P.live.values()]; S.bags = [...B.live.values()];
+  // Re-read rather than use the merge snapshot, so an edit made while this sync was awaiting isn't dropped
+  await load();
   ls.set('bt_tombs', [...P.dead].map(([id, deletedAt]) => ({ id, store: 'projects', deletedAt })).concat([...B.dead].map(([id, deletedAt]) => ({ id, store: 'bags', deletedAt }))));
   const ps = [...S.projects].sort((a, b) => a.name.localeCompare(b.name));
   const inOrder = (a, b) => (a.kind === 'stage') - (b.kind === 'stage') || (a.kind === 'stage' ? byBuild(a, b) : KINDS.indexOf(a.kind) - KINDS.indexOf(b.kind));
