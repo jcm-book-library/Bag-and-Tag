@@ -180,7 +180,7 @@ select.inp{font-size:16px}
 .photo{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
 .photo img{width:72px;height:72px;object-fit:cover;border-radius:10px}
 .ask{padding:20px;display:flex;flex-direction:column;gap:14px}
-#askDlg{height:auto;max-width:440px;margin:auto;border-radius:16px;width:calc(100% - 32px)}
+#askDlg,#sheetDlg{height:auto;max-width:440px;margin:auto;border-radius:16px;width:calc(100% - 32px)}
 
 /* Index table */
 .tablewrap{overflow-x:auto}
@@ -263,6 +263,7 @@ details summary{cursor:pointer;font-weight:700;min-height:40px;display:flex;alig
 <dialog id="bagDlg"></dialog>
 <dialog id="projDlg"></dialog>
 <dialog id="askDlg"></dialog>
+<dialog id="sheetDlg"></dialog>
 <div id="toast" role="status" hidden></div>
 <input type="file" id="importFile" accept="application/json,.json" hidden>
 
@@ -281,6 +282,8 @@ const ls = {
   get(k, d) { try { const v = localStorage.getItem(k); return v == null ? d : JSON.parse(v); } catch { return d; } },
   set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} },
 };
+const IN_FRAME = (() => { try { return window.top !== window.self; } catch { return true; } })();
+const SYNC_OK = !IN_FRAME;   // no Google sign-in inside the claude.ai preview frame
 const LETTERS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
 // Fixed bags, pinned above the stages. Order = the order you want them during a rebuild.
 const SPECIAL = {
@@ -319,11 +322,12 @@ const DB = (() => {
     t.oncomplete = () => res(r.result); t.onerror = t.onabort = () => rej(t.error);
   }));
   return {
+    onChange: null,   // (store, id) after a write that came from the user, not from a sync
     async init() { try { await open(); return true; } catch { mem = Object.fromEntries(STORES.map(s => [s, new Map()])); return false; } },
     all: st => mem ? Promise.resolve([...mem[st].values()]) : req(st, 'readonly', s => s.getAll()),
     get: (st, id) => mem ? Promise.resolve(mem[st].get(id)) : req(st, 'readonly', s => s.get(id)),
-    put: (st, v) => mem ? (mem[st].set(v.id, v), Promise.resolve()) : req(st, 'readwrite', s => s.put(v)),
-    del: (st, id) => mem ? (mem[st].delete(id), Promise.resolve()) : req(st, 'readwrite', s => s.delete(id)),
+    async put(st, v, quiet) { await (mem ? (mem[st].set(v.id, v), Promise.resolve()) : req(st, 'readwrite', s => s.put(v))); if (!quiet && st !== 'photos') this.onChange?.(st, v.id, 'put'); },
+    async del(st, id, quiet) { await (mem ? (mem[st].delete(id), Promise.resolve()) : req(st, 'readwrite', s => s.delete(id))); if (!quiet && st !== 'photos') this.onChange?.(st, id, 'del'); },
     get saved() { return !mem; },
   };
 })();
@@ -332,6 +336,7 @@ const DB = (() => {
 const S = {
   projects: [], bags: [], route: { view: 'home' }, q: '', hideDone: ls.get('bt_hideDone', false),
   photoURLs: new Map(), labelSel: null, labelSelFor: null, wake: null,
+  sync: { err: null, at: 0, dirty: false, busy: false, again: false },
   lo: Object.assign({ preset: 'L7160', start: 1, outline: false, extra: false, dx: 0, dy: 0, custom: null }, ls.get('bt_labels', {})),
 };
 const proj = id => S.projects.find(p => p.id === id);
@@ -429,11 +434,10 @@ function render() {
 /* ---------- home ---------- */
 function viewHome() {
   const ps = [...S.projects].sort((a, b) => (b.updatedAt || b.createdAt) - (a.updatedAt || a.createdAt));
-  const inFrame = (() => { try { return window.top !== window.self; } catch { return true; } })();
   return `<div class="wrap stack">
     <header class="topbar"><div class="brand">${MARK}<div><div class="name">Bag &amp; Tag</div><div class="sub">Teardown and rebuild tracker for big LEGO sets</div></div></div></header>
     ${!DB.saved ? `<div class="notice">This browser is blocking storage, so nothing here will be kept after you close the page. Open the app from its own address to save your sets.</div>` : ''}
-    ${inFrame && DB.saved ? `<div class="notice">Preview copy. Printing, offline use and backups work when you open the app from its own address.</div>` : ''}
+    ${IN_FRAME && DB.saved ? `<div class="notice">Preview copy. Printing, offline use and backups work when you open the app from its own address.</div>` : ''}
     ${ps.length ? `<section class="stack"><div class="row"><h2>Your sets</h2></div><div class="projects">
       ${ps.map(p => { const s = stats(p); const pct = s.n ? Math.round(s.done / s.n * 100) : 0; const phase = s.done ? `Rebuild · ${s.done} of ${s.n} bags` : 'Teardown';
         return `<a class="pcard" href="#/p/${p.id}/${s.done ? 'rebuild' : 'bags'}">
@@ -449,6 +453,7 @@ function viewHome() {
       <div class="row"><button type="button" class="btn primary big" data-act="newProject" data-falcon="1">Set up Millennium Falcon 75192</button><button type="button" class="btn big" data-act="newProject">Another set</button></div>
       <button type="button" class="btn ghost" data-act="loadExample" style="justify-self:start">Explore with an example set first</button>
     </section>`}
+    ${SYNC_OK ? syncPanel() : ''}
     <section class="panel stack">
       <h2>Backup</h2>
       <p class="muted" style="margin:0">Your sets live in this browser on this device. Save a backup file before moving devices or clearing your browser, and keep the printed index in the tub.</p>
@@ -466,7 +471,7 @@ function viewProject(p, tab) {
     <header class="stack" style="gap:6px">
       <a class="crumb" href="#/">${ico.back.replace('<svg', '<svg width="20" height="20"')}All sets</a>
       <div class="row"><span class="tag lg">${esc(p.code)}</span><h1 style="flex:1;min-width:0">${esc(p.name)}</h1><button type="button" class="btn sm" data-act="editProject">Edit set</button></div>
-      <div class="muted tnum">${[p.setNumber && `Set ${esc(p.setNumber)}`, p.pieces && `${fmt(p.pieces)} pieces`, p.booklets && `${p.booklets} booklets`, p.stages && `${p.stages} stages`].filter(Boolean).join(' · ')}${p.example ? ' <span class="badge ex">Example data</span>' : ''}</div>
+      <div class="muted tnum">${[p.setNumber && `Set ${esc(p.setNumber)}`, p.pieces && `${fmt(p.pieces)} pieces`, p.booklets && `${p.booklets} booklets`, p.stages && `${p.stages} stages`].filter(Boolean).join(' · ')}${p.example ? ' <span class="badge ex">Example data</span>' : ''}${SYNC_OK ? ` <span class="badge syncChip">${esc(chipText())}</span>` : ''}</div>
     </header>
     <nav class="tabs" aria-label="Project">${tabs.map(([k, l, i]) => `<a href="#/p/${p.id}/${k}" ${k === tab ? 'aria-current="page"' : ''}>${i}<span>${l}</span></a>`).join('')}</nav>
     ${body}
@@ -872,7 +877,7 @@ function viewRebuild(p, s) {
 async function toggleRebuilt(id, silent) {
   const b = S.bags.find(x => x.id === id); if (!b) return;
   const p = proj(b.projectId);
-  b.rebuiltAt = b.rebuiltAt ? null : Date.now();
+  b.rebuiltAt = b.rebuiltAt ? null : Date.now(); b.updatedAt = Date.now();
   await DB.put('bags', b); await touch(p);
   const y = scrollY; render(); scrollTo(0, y);
   if (!silent) toast(b.rebuiltAt ? `${codeOf(b, p)} rebuilt` : `${codeOf(b, p)} back to unopened`, { label: 'Undo', run: () => toggleRebuilt(id, true) });
@@ -895,7 +900,7 @@ addEventListener('afterprint', () => {
   if (!pendingMark) return;
   const { ids, pid } = pendingMark; pendingMark = null;
   toast(`Mark ${ids.length} label${ids.length === 1 ? '' : 's'} as printed?`, { label: 'Mark printed', run: async () => {
-    for (const id of ids) { const b = S.bags.find(x => x.id === id); if (b) { b.labelledAt = Date.now(); await DB.put('bags', b); } }
+    for (const id of ids) { const b = S.bags.find(x => x.id === id); if (b) { b.labelledAt = b.updatedAt = Date.now(); await DB.put('bags', b); } }
     S.labelSel = null; S.labelSelFor = null;
     if (S.route.id === pid) render();
   } });
@@ -921,8 +926,9 @@ async function importData(file) {
   const ok = await ask({ title: 'Restore this backup?', body: `${data.projects.length} sets and ${data.bags?.length || 0} bags. Sets already here with the same ID are replaced; others are kept.`, ok: 'Restore' });
   if (!ok) return;
   for (const ph of data.photos || []) { try { await DB.put('photos', { id: ph.id, blob: await (await fetch(ph.data)).blob() }); } catch {} }
-  for (const p of data.projects) await DB.put('projects', p);
-  for (const b of data.bags || []) await DB.put('bags', b);
+  // A restore is a deliberate edit, so stamp it newer than whatever the sheet holds
+  for (const p of data.projects) await DB.put('projects', { ...p, updatedAt: Date.now() });
+  for (const b of data.bags || []) await DB.put('bags', { ...b, updatedAt: Date.now() });
   await load(); render(); toast('Backup restored');
 }
 
@@ -952,6 +958,236 @@ async function loadExample() {
   go(`#/p/${p.id}/bags`);
 }
 
+/* ---------- Google Sheet sync ----------
+   IndexedDB stays the source the UI reads. The sheet is a second copy that follows the newest edit per record:
+   tabs Projects and Bags, one row per record, deletes kept as rows with a "deleted" time so other devices hear about them.
+   Photos are not synced. Sign-in is Google Identity Services, same pattern as the Book Library app on this origin. */
+const SHEET_DEFAULT = '1HiWEHpRGyRk8WZu1Ix_ewr0J9oRLNgfVbjqhWjcNG6c';
+const TOK = 'bt-google-token', TABS = ['Projects', 'Bags'];
+const PCOLS = ['id', 'name', 'setNumber', 'code', 'pieces', 'booklets', 'stages', 'notes', 'example', 'createdAt', 'updatedAt', 'deleted'];
+const BCOLS = ['id', 'projectId', 'code', 'kind', 'stage', 'letter', 'booklet', 'stepFrom', 'stepTo', 'ref', 'pieces', 'notes', 'tub', 'hasPhoto', 'createdAt', 'updatedAt', 'rebuiltAt', 'labelledAt', 'deleted'];
+const G = {
+  client: null,
+  cfg: () => ls.get('bt_sheet', null) || {},
+  saveCfg(c) { ls.set('bt_sheet', { ...this.cfg(), ...c }); },
+  clientId() { return this.cfg().clientId || (ls.get('mbl_config', null) || {}).clientId || ''; },
+  sheetId() { return this.cfg().spreadsheetId || SHEET_DEFAULT; },
+  tok: () => ls.get(TOK, null),
+  valid() { const t = this.tok(); return !!(t && t.exp > Date.now()); },
+  gis: () => !!(window.google && google.accounts && google.accounts.oauth2),
+};
+const tombs = () => { const t = ls.get('bt_tombs', []); return Array.isArray(t) ? t : []; };
+function tomb(store, id) { ls.set('bt_tombs', tombs().filter(x => !(x.store === store && x.id === id)).concat({ id, store, deletedAt: Date.now() })); }
+function untomb(store, id) { const t = tombs(), n = t.filter(x => !(x.store === store && x.id === id)); if (n.length !== t.length) ls.set('bt_tombs', n); }
+
+/* status text */
+function ago(t) {
+  const s = (Date.now() - t) / 1000;
+  return s < 45 ? 'just now' : s < 3600 ? `${Math.round(s / 60)} min ago` : s < 86400 ? `${Math.round(s / 3600)} h ago` : `${Math.round(s / 86400)} d ago`;
+}
+function syncText() {
+  const y = S.sync;
+  if (y.busy) return 'Syncing…';
+  if (!G.valid()) return G.cfg().on ? 'Signed out · changes are kept on this device' : 'Not connected';
+  if (y.err) return y.err;
+  if (y.dirty) return 'Changes waiting to sync';
+  return y.at ? `Synced ${ago(y.at)}` : 'Connected';
+}
+const chipText = () => S.sync.busy ? 'Syncing' : (G.valid() && !S.sync.err && !S.sync.dirty && S.sync.at) ? 'Synced' : 'Not synced';
+function paintSync() {
+  if (!SYNC_OK) return;
+  const l = $('#syncLine'); if (l) l.textContent = syncText();
+  document.querySelectorAll('.syncChip').forEach(c => { c.textContent = chipText(); });
+  const b = $('#syncBtn');
+  if (b) { const on = G.valid(); b.dataset.act = on ? 'syncNow' : 'connect'; b.textContent = on ? 'Sync now' : 'Connect'; b.disabled = S.sync.busy; }
+}
+function syncPanel() {
+  return `<section class="panel stack">
+      <h2>Google Sheet</h2>
+      <p class="muted" style="margin:0">Keeps a second copy of your sets in a Google Sheet, so they survive a new phone or a cleared browser. Photos stay on this device.</p>
+      <p style="margin:0;font-weight:700" id="syncLine">${esc(syncText())}</p>
+      <div class="row"><button type="button" class="btn ${G.valid() ? '' : 'primary'}" id="syncBtn" data-act="${G.valid() ? 'syncNow' : 'connect'}" ${S.sync.busy ? 'disabled' : ''}>${G.valid() ? 'Sync now' : 'Connect'}</button>
+        <a class="btn" href="https://docs.google.com/spreadsheets/d/${esc(G.sheetId())}/edit" target="_blank" rel="noopener">Open sheet</a>
+        <button type="button" class="btn ghost" data-act="sheetSettings">Sheet settings</button></div>
+    </section>`;
+}
+
+/* sign-in. connect() runs from a click and stays synchronous once Google's script is loaded, so the popup is not blocked. */
+function loadGis() {
+  return new Promise((ok, fail) => {
+    if (G.gis()) return ok();
+    const s = document.createElement('script');
+    s.src = 'https://accounts.google.com/gsi/client'; s.async = true;
+    s.onload = () => ok(); s.onerror = () => fail(new Error('Google sign-in did not load'));
+    document.head.appendChild(s);
+  });
+}
+function syncFail(msg) { S.sync.err = msg; paintSync(); }
+function connect() {
+  const id = G.clientId();
+  if (!id) return openSheetSettings(true);
+  if (!G.gis()) { loadGis().then(connect, e => syncFail(`Not synced: ${e.message}`)); return; }
+  try {
+    G.client ||= google.accounts.oauth2.initTokenClient({
+      client_id: id, scope: 'https://www.googleapis.com/auth/spreadsheets',
+      callback: r => {
+        if (r.error) return syncFail(`Google sign-in failed: ${r.error}`);
+        ls.set(TOK, { t: r.access_token, exp: Date.now() + (r.expires_in - 120) * 1000 });
+        G.saveCfg({ on: true }); S.sync.err = null; sync();
+      },
+      error_callback: e => syncFail(`Google sign-in was closed or blocked${e?.type ? ` (${e.type})` : ''}. Press Connect to try again.`),
+    });
+    G.client.requestAccessToken({ prompt: '' });
+  } catch (e) { syncFail(`Not synced: ${e.message}`); }
+}
+function openSheetSettings(needId) {
+  const reused = !G.cfg().clientId && (ls.get('mbl_config', null) || {}).clientId;
+  const d = $('#sheetDlg');
+  d.innerHTML = `<form id="sheetForm" class="ask" novalidate data-connect="${needId ? 1 : ''}">
+    <h2>Sheet settings</h2>
+    <div class="field"><label for="s_client">Google OAuth Client ID</label><input class="inp" id="s_client" value="${esc(G.clientId())}" placeholder="1234-abc.apps.googleusercontent.com" autocomplete="off" autocapitalize="off" spellcheck="false" style="font-size:15px">
+      <p class="hint">${reused ? 'Reused from the Book Library app on this site.' : 'From your Google Cloud project. The one the Book Library app uses will do.'}</p></div>
+    <div class="field"><label for="s_sheet">Sheet link or ID</label><input class="inp" id="s_sheet" value="${esc(G.sheetId())}" autocomplete="off" autocapitalize="off" spellcheck="false" style="font-size:15px">
+      <p class="hint">Use a sheet just for this app. Its Projects and Bags tabs are rewritten on every sync.</p></div>
+    <p class="err" id="sheetErr" hidden></p>
+    <div class="row"><span class="sp"></span><button type="button" class="btn" data-act="closeDlg">Cancel</button><button class="btn primary">Save</button></div></form>`;
+  d.showModal();
+}
+function saveSheetSettings(thenConnect) {
+  const cid = $('#s_client').value.trim(), raw = $('#s_sheet').value.trim();
+  const err = m => { const e = $('#sheetErr'); e.textContent = m; e.hidden = false; };
+  if (cid && !/\.apps\.googleusercontent\.com$/.test(cid)) return err('That does not look like a Client ID. It ends in .apps.googleusercontent.com.');
+  if (!cid && !(ls.get('mbl_config', null) || {}).clientId) return err('Enter a Client ID.');
+  const m = raw.match(/\/d\/([\w-]+)/) || raw.match(/^([\w-]{20,})$/);
+  if (!m) return err('Paste the sheet link or its ID.');
+  G.saveCfg({ clientId: cid, spreadsheetId: m[1] }); G.client = null; S.sync.err = null;
+  $('#sheetDlg').close();
+  if (thenConnect) connect(); else if (G.valid()) sync();
+  if (S.route.view === 'home') render();
+}
+
+/* Sheets API */
+async function gapi(path, method = 'GET', body) {
+  const t = G.tok();
+  let res;
+  try {
+    res = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${G.sheetId()}${path}`, { method, headers: { Authorization: `Bearer ${t.t}`, ...(body ? { 'Content-Type': 'application/json' } : {}) }, body: body && JSON.stringify(body) });
+  } catch { throw { code: 'net' }; }
+  if (res.status === 401) { try { localStorage.removeItem(TOK); } catch {} throw { code: 'auth' }; }
+  const j = await res.json().catch(() => ({}));
+  if (!res.ok) throw { code: 'api', message: res.status === 404 ? 'sheet not found. Check Sheet settings.' : (j.error?.message || `HTTP ${res.status}`) };
+  return j;
+}
+async function readTab(title) {
+  const j = await gapi(`/values/${encodeURIComponent(title + '!A1:Z')}?valueRenderOption=UNFORMATTED_VALUE`);
+  const [head = [], ...rows] = j.values || [];
+  return rows.map(r => Object.fromEntries(head.map((h, i) => [h, r[i] ?? '']))).filter(r => r.id !== '' && r.id != null);
+}
+async function writeTab(title, head, rows) {
+  const q = s => encodeURIComponent(`${title}!${s}`);
+  await gapi(`/values/${q('A2:Z')}:clear`, 'POST', {});
+  await gapi(`/values/${q('A1')}?valueInputOption=RAW`, 'PUT', { values: [head, ...rows] });
+}
+
+/* row <-> record */
+const str = v => v == null ? '' : String(v);
+const num = v => { if (v === '' || v == null) return null; const n = typeof v === 'number' ? v : parseFloat(v); return Number.isFinite(n) ? n : null; };
+const iso = ms => ms ? new Date(ms).toISOString() : '';
+const when = v => { if (v === '' || v == null) return null; if (typeof v === 'number') return v; const t = Date.parse(v); return Number.isNaN(t) ? null : t; };
+const delAt = v => v === '' || v == null || v === false ? null : (when(v) ?? Date.now());   // anything ticked in "deleted" counts
+const projCells = p => [p.id, p.name, p.setNumber ?? '', p.code, p.pieces ?? '', p.booklets ?? '', p.stages ?? '', p.notes ?? '', p.example ? true : '', iso(p.createdAt), iso(p.updatedAt), ''];
+const bagCells = (b, p) => [b.id, b.projectId, codeOf(b, p), b.kind, b.stage ?? '', b.letter ?? '', b.booklet ?? '', b.stepFrom ?? '', b.stepTo ?? '', refOf(b), b.pieces ?? '', b.notes ?? '', b.tub ?? '', b.photoId ? true : '', iso(b.createdAt), iso(b.updatedAt), iso(b.rebuiltAt), iso(b.labelledAt), ''];
+const tombCells = (cols, id, t) => cols.map(c => c === 'id' ? id : c === 'deleted' ? iso(t) : '');
+function projFrom(r) {
+  if (!str(r.name) && !str(r.code)) return null;
+  return { id: str(r.id), name: str(r.name), setNumber: str(r.setNumber), code: str(r.code), pieces: num(r.pieces), booklets: num(r.booklets), stages: num(r.stages), notes: str(r.notes), ...(r.example ? { example: true } : {}), createdAt: when(r.createdAt) || Date.now(), updatedAt: when(r.updatedAt) || 0 };
+}
+function bagFrom(r, old) {
+  const kind = str(r.kind), stage = kind === 'stage';
+  if (kind !== 'stage' && !KINDS.includes(kind)) return null;
+  if (stage && (num(r.stage) == null || !str(r.letter))) return null;
+  return { id: str(r.id), projectId: str(r.projectId), kind, stage: stage ? num(r.stage) : null, letter: stage ? str(r.letter) : null, booklet: stage ? num(r.booklet) : null,
+    stepFrom: stage ? num(r.stepFrom) : null, stepTo: stage ? num(r.stepTo) : null, pieces: num(r.pieces), notes: str(r.notes), tub: str(r.tub), photoId: old?.photoId ?? null,
+    createdAt: when(r.createdAt) || Date.now(), updatedAt: when(r.updatedAt) || 0, rebuiltAt: when(r.rebuiltAt), labelledAt: when(r.labelledAt) };
+}
+
+/* Newest edit per id wins, ties go to this device. A delete is an edit stamped with its delete time. */
+function mergeStore(local, remoteRows, tmap, make) {
+  const remote = new Map();
+  for (const r of remoteRows) {
+    const id = str(r.id), del = delAt(r.deleted);
+    if (del != null) remote.set(id, { t: del, rec: null });
+    else { const rec = make(r, local.get(id)); if (rec) remote.set(id, { t: rec.updatedAt, rec }); }
+  }
+  const live = new Map(), dead = new Map(), pulled = [], removed = [];
+  for (const id of new Set([...local.keys(), ...remote.keys(), ...tmap.keys()])) {
+    const l = local.get(id), tl = tmap.get(id);
+    let L = l ? { t: l.updatedAt || 0, rec: l } : null;
+    if (tl != null && (!L || tl > L.t)) L = { t: tl, rec: null };
+    const R = remote.get(id), W = R && (!L || R.t > L.t) ? R : L;
+    if (!W) continue;
+    if (W.rec) { live.set(id, W.rec); if (W === R) pulled.push(W.rec); }
+    else { dead.set(id, W.t); if (W === R && l) removed.push(l); }
+  }
+  return { live, dead, pulled, removed };
+}
+async function syncOnce() {
+  const meta = await gapi('?fields=sheets.properties.title');
+  const have = new Set((meta.sheets || []).map(s => s.properties.title)), add = TABS.filter(t => !have.has(t));
+  if (add.length) await gapi(':batchUpdate', 'POST', { requests: add.map(title => ({ addSheet: { properties: { title, gridProperties: { frozenRowCount: 1 } } } })) });
+  const [pRows, bRows] = await Promise.all(TABS.map(readTab));
+  const tm = st => new Map(tombs().filter(x => x.store === st).map(x => [x.id, x.deletedAt]));
+  const P = mergeStore(new Map(S.projects.map(p => [p.id, p])), pRows, tm('projects'), projFrom);
+  const B = mergeStore(new Map(S.bags.map(b => [b.id, b])), bRows, tm('bags'), bagFrom);
+  // A bag whose set is gone has nowhere to live
+  for (const [id, b] of [...B.live]) if (!P.live.has(b.projectId)) { B.live.delete(id); B.dead.set(id, P.dead.get(b.projectId) ?? Date.now()); if (S.bags.some(x => x.id === id)) B.removed.push(b); }
+  B.pulled = B.pulled.filter(b => B.live.has(b.id));
+  for (const [st, M] of [['projects', P], ['bags', B]]) {
+    for (const r of M.pulled) await DB.put(st, r, true);
+    for (const r of M.removed) { await DB.del(st, r.id, true); if (r.photoId) await DB.del('photos', r.photoId, true); }
+  }
+  S.projects = [...P.live.values()]; S.bags = [...B.live.values()];
+  ls.set('bt_tombs', [...P.dead].map(([id, deletedAt]) => ({ id, store: 'projects', deletedAt })).concat([...B.dead].map(([id, deletedAt]) => ({ id, store: 'bags', deletedAt }))));
+  const ps = [...S.projects].sort((a, b) => a.name.localeCompare(b.name));
+  const inOrder = (a, b) => (a.kind === 'stage') - (b.kind === 'stage') || (a.kind === 'stage' ? byBuild(a, b) : KINDS.indexOf(a.kind) - KINDS.indexOf(b.kind));
+  const dead = M => [...M.dead].sort((a, b) => a[1] - b[1]);
+  await writeTab('Projects', PCOLS, ps.map(projCells).concat(dead(P).map(([id, t]) => tombCells(PCOLS, id, t))));
+  await writeTab('Bags', BCOLS, ps.flatMap(p => bagsOf(p.id).sort(inOrder).map(b => bagCells(b, p))).concat(dead(B).map(([id, t]) => tombCells(BCOLS, id, t))));
+  return P.pulled.length + P.removed.length + B.pulled.length + B.removed.length;
+}
+
+/* One sync at a time; a change that lands mid-sync queues exactly one re-run. A failure never touches local data. */
+async function sync() {
+  const y = S.sync;
+  clearTimeout(sync.t);
+  if (!SYNC_OK || !G.valid()) return paintSync();
+  if (y.busy) { y.again = true; return; }
+  y.busy = true;
+  do {
+    y.again = false; y.dirty = false; paintSync();
+    try {
+      const n = await syncOnce();
+      y.err = null; y.at = Date.now();
+      if (n) { const sy = scrollY; render(); scrollTo(0, sy); }
+    } catch (e) {
+      y.dirty = true; y.again = false;
+      y.err = e.code === 'api' ? `Not synced: ${e.message}` : e.code === 'auth' ? null : 'Not synced · will retry';
+    }
+  } while (y.again);
+  y.busy = false; paintSync();
+}
+DB.onChange = (st, id, op) => {
+  if (op === 'put') untomb(st, id);   // a restored or re-created record is no longer deleted
+  if (!SYNC_OK) return;
+  S.sync.dirty = true; clearTimeout(sync.t); if (G.valid()) sync.t = setTimeout(sync, 3000); paintSync();
+};
+function syncBoot() {
+  if (G.clientId()) loadGis().catch(() => {});   // preload so Connect can open the popup straight from the click
+  if (G.valid()) sync();
+  addEventListener('online', () => { if (G.valid() && (S.sync.err || S.sync.dirty)) sync(); });
+  setInterval(paintSync, 30000);
+}
+
 /* ---------- events ---------- */
 const A = {
   newProject: el => openProject(null, el.dataset.falcon),
@@ -972,15 +1208,15 @@ const A = {
   deleteBag: async () => {
     const b = S.bags.find(x => x.id === F.id), p = proj(b.projectId);
     if (!await ask({ title: `Delete ${codeOf(b, p)}?`, body: 'This removes the bag and its photo from the log.', ok: 'Delete', danger: true })) return;
-    await DB.del('bags', b.id); if (b.photoId) await DB.del('photos', b.photoId);
+    tomb('bags', b.id); await DB.del('bags', b.id); if (b.photoId) await DB.del('photos', b.photoId);
     S.bags = S.bags.filter(x => x.id !== b.id); await touch(p);
     F = null; $('#bagDlg').close(); render(); toast(`Deleted ${codeOf(b, p)}`);
   },
   deleteProject: async () => {
     const p = proj(PF.id), n = bagsOf(p.id).length;
     if (!await ask({ title: `Delete ${p.name}?`, body: `This deletes the set and all ${n} bag records. Save a backup first if you might want them.`, ok: 'Delete set', danger: true })) return;
-    for (const b of bagsOf(p.id)) { await DB.del('bags', b.id); if (b.photoId) await DB.del('photos', b.photoId); }
-    await DB.del('projects', p.id);
+    for (const b of bagsOf(p.id)) { tomb('bags', b.id); await DB.del('bags', b.id); if (b.photoId) await DB.del('photos', b.photoId); }
+    tomb('projects', p.id); await DB.del('projects', p.id);
     S.bags = S.bags.filter(b => b.projectId !== p.id); S.projects = S.projects.filter(x => x.id !== p.id);
     $('#projDlg').close(); PF = null; go('#/'); render();
   },
@@ -988,8 +1224,8 @@ const A = {
   resetRebuild: async () => {
     const p = proj(S.route.id);
     if (!await ask({ title: 'Reset rebuild progress?', body: 'Every bag goes back to unopened. The bag log is not changed.', ok: 'Reset', danger: true })) return;
-    for (const b of bagsOf(p.id)) if (b.rebuiltAt) { b.rebuiltAt = null; await DB.put('bags', b); }
-    render();
+    for (const b of bagsOf(p.id)) if (b.rebuiltAt) { b.rebuiltAt = null; b.updatedAt = Date.now(); await DB.put('bags', b); }
+    await touch(p); render();
   },
   wake: async () => { if (S.wake) { S.wakeWanted = false; releaseWake(); } else { S.wakeWanted = true; await requestWake(); } render(); },
   sel: el => {
@@ -1005,6 +1241,7 @@ const A = {
   printIndex: () => printJob(`<div class="print-idx">${indexHTML(proj(S.route.id))}</div>`, '@page{size:A4;margin:12mm}'),
   exportData,
   importData: () => $('#importFile').click(),
+  connect, syncNow: () => sync(), sheetSettings: () => openSheetSettings(false),
 };
 document.addEventListener('click', e => {
   const el = e.target.closest('[data-act]');
@@ -1058,6 +1295,7 @@ document.addEventListener('submit', e => {
   // Leave <form method="dialog"> (the confirm dialog) to close itself.
   if (e.target.id === 'bagForm') { e.preventDefault(); saveBag(e.submitter?.value === 'next'); }
   else if (e.target.id === 'projForm') { e.preventDefault(); saveProject(); }
+  else if (e.target.id === 'sheetForm') { e.preventDefault(); saveSheetSettings(e.target.dataset.connect); }
 });
 $('#bagDlg').addEventListener('close', () => { if (F?.previewURL) URL.revokeObjectURL(F.previewURL); F = null; });
 document.addEventListener('toggle', e => { if (e.target.id === 'layDetails') S.layOpen = e.target.open; }, true);
@@ -1079,6 +1317,7 @@ async function load() {
     if (last && proj(last)) { try { history.replaceState(null, '', `#/p/${last}/bags`); } catch {} }
   }
   render();
+  if (SYNC_OK) syncBoot();
 })();
 })();
 </script>
