@@ -1,0 +1,10 @@
+{
+  "name": "Bag & Tag",
+  "repo": "Bag-and-Tag",
+  "purpose": "Tracks bags while tearing down and rebuilding big LEGO sets and prints the bag labels, storing data in the browser with an optional Google Sheet copy.",
+  "family": "Hobby",
+  "stage": "Working",
+  "live": "https://jcm-book-library.github.io/Bag-and-Tag/",
+  "tags": [],
+  "updated": "2026-10-19"
+}
