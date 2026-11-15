@@ -1069,6 +1069,8 @@ function saveSheetSettings(thenConnect) {
 /* Sheets API */
 async function gapi(path, method = 'GET', body) {
   const t = G.tok();
+  // A unique URL per read, so no browser or service-worker cache can ever hand back an old copy of the sheet
+  if (method === 'GET') path += (path.includes('?') ? '&' : '?') + '_=' + Date.now();
   let res;
   try {
     res = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${G.sheetId()}${path}`, { method, cache: 'no-store', headers: { Authorization: `Bearer ${t.t}`, ...(body ? { 'Content-Type': 'application/json' } : {}) }, body: body && JSON.stringify(body) });
@@ -1085,8 +1087,8 @@ async function readTab(title) {
 }
 async function writeTab(title, head, rows) {
   const q = s => encodeURIComponent(`${title}!${s}`);
-  await gapi(`/values/${q('A2:Z')}:clear`, 'POST', {});
   await gapi(`/values/${q('A1')}?valueInputOption=RAW`, 'PUT', { values: [head, ...rows] });
+  await gapi(`/values/${q(`A${rows.length + 2}:Z`)}:clear`, 'POST', {});
 }
 
 /* row <-> record */
@@ -1153,6 +1155,13 @@ async function syncOnce() {
   // Re-read rather than use the merge snapshot, so an edit made while this sync was awaiting isn't dropped
   await load();
   ls.set('bt_tombs', [...P.dead].map(([id, deletedAt]) => ({ id, store: 'projects', deletedAt })).concat([...B.dead].map(([id, deletedAt]) => ({ id, store: 'bags', deletedAt }))));
+  // Safety check before overwriting: every row now in the sheet must have been part of this merge.
+  // If not, the first read was stale or another device wrote meanwhile, so stop and change nothing.
+  for (const [tab, rows] of [['Projects', pRows], ['Bags', bRows]]) {
+    const seen = new Set(rows.map(r => str(r.id)));
+    const now = await gapi(`/values/${encodeURIComponent(tab + '!A2:A')}`);
+    if ((now.values || []).some(([id]) => id !== '' && id != null && !seen.has(str(id)))) throw { code: 'api', message: 'the sheet changed during sync. Nothing was overwritten; press Sync now to try again.' };
+  }
   const ps = [...S.projects].sort((a, b) => a.name.localeCompare(b.name));
   const inOrder = (a, b) => (a.kind === 'stage') - (b.kind === 'stage') || (a.kind === 'stage' ? byBuild(a, b) : KINDS.indexOf(a.kind) - KINDS.indexOf(b.kind));
   const dead = M => [...M.dead].sort((a, b) => a[1] - b[1]);
