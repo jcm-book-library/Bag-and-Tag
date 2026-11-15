@@ -1,5 +1,5 @@
 // Offline cache so the app opens mid-move with no wifi. Bump VERSION when shipping changes.
-const VERSION = 'bag-and-tag-v2';
+const VERSION = 'bag-and-tag-v3';
 const SHELL = ['./', 'index.html', 'manifest.webmanifest', 'icons/icon-192.png', 'icons/icon-512.png', 'icons/apple-touch-icon.png', 'icons/favicon-32.png', 'icons/icon.svg'];
 self.addEventListener('install', e => { e.waitUntil(caches.open(VERSION).then(c => c.addAll(SHELL)).then(() => self.skipWaiting())); });
 self.addEventListener('activate', e => {
@@ -8,6 +8,10 @@ self.addEventListener('activate', e => {
 self.addEventListener('fetch', e => {
   const req = e.request;
   if (req.method !== 'GET') return;
+  // Only the app's own files and Google Fonts are cached. Google sign-in and the Sheets API must always go to the network,
+  // or sync reads a stale copy of the sheet.
+  const url = new URL(req.url);
+  if (url.origin !== self.location.origin && !/^fonts\.(googleapis|gstatic)\.com$/.test(url.hostname)) return;
   // Pages: network first, so updates arrive; fall back to the cached copy offline.
   if (req.mode === 'navigate') {
     e.respondWith(fetch(req).then(r => { caches.open(VERSION).then(c => c.put('index.html', r.clone())); return r; }).catch(() => caches.match('index.html')));

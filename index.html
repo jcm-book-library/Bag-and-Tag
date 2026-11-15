@@ -1071,7 +1071,7 @@ async function gapi(path, method = 'GET', body) {
   const t = G.tok();
   let res;
   try {
-    res = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${G.sheetId()}${path}`, { method, headers: { Authorization: `Bearer ${t.t}`, ...(body ? { 'Content-Type': 'application/json' } : {}) }, body: body && JSON.stringify(body) });
+    res = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${G.sheetId()}${path}`, { method, cache: 'no-store', headers: { Authorization: `Bearer ${t.t}`, ...(body ? { 'Content-Type': 'application/json' } : {}) }, body: body && JSON.stringify(body) });
   } catch { throw { code: 'net' }; }
   if (res.status === 401) { try { localStorage.removeItem(TOK); } catch {} throw { code: 'auth' }; }
   const j = await res.json().catch(() => ({}));
@@ -1134,7 +1134,11 @@ function mergeStore(local, remoteRows, tmap, make) {
 async function syncOnce() {
   const meta = await gapi('?fields=sheets.properties.title');
   const have = new Set((meta.sheets || []).map(s => s.properties.title)), add = TABS.filter(t => !have.has(t));
-  if (add.length) await gapi(':batchUpdate', 'POST', { requests: add.map(title => ({ addSheet: { properties: { title, gridProperties: { frozenRowCount: 1 } } } })) });
+  for (const title of add) {
+    // One tab per request, so a tab that already exists (e.g. made on another device) doesn't stop the other being added
+    try { await gapi(':batchUpdate', 'POST', { requests: [{ addSheet: { properties: { title, gridProperties: { frozenRowCount: 1 } } } }] }); }
+    catch (e) { if (!/already exists/i.test(e.message || '')) throw e; }
+  }
   const [pRows, bRows] = await Promise.all(TABS.map(readTab));
   const tm = st => new Map(tombs().filter(x => x.store === st).map(x => [x.id, x.deletedAt]));
   const P = mergeStore(new Map(S.projects.map(p => [p.id, p])), pRows, tm('projects'), projFrom);
